@@ -1,0 +1,69 @@
+﻿<%@ Page Title="" Language="VB" MasterPageFile="~/MasterPageHH.master" AutoEventWireup="false" CodeFile="default_hh.aspx.vb" Inherits="default_hh" %>
+
+<asp:Content ID="Content1" ContentPlaceHolderID="head" Runat="Server">
+     <style type="text/css">
+        .style1
+        {
+            font-size: small;
+        }
+        .button_green {
+            background-color: #4CAF50; /* Green */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button_blue {
+            background-color: #008CBA; /* Blue */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button_red {
+            background-color: #f44336; /* Red */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+         #form1
+         {
+             font-size: small;
+         }
+    </style>
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+    <table>
+    <tr>
+        <td>
+            <asp:Label ID="SelectLabel" runat="server" Text="Select Employee: "></asp:Label></td>
+        <td>
+            <asp:DropDownList ID="EmployeeDropDown" runat="server" BackColor="#FFFF99" 
+                Width="200px">
+            </asp:DropDownList>
+        </td>
+        <td>
+            <asp:Button ID="OKButton" runat="server" Text="OK" CssClass="button_green" 
+                Width="50px" /></td>
+    </tr>
+</table>
+<div style="display:block; width: 200px">
+    <asp:Button ID="QtyMoveButton" runat="server" Text="Quantity Move" 
+        Width="343px" CssClass="button_green" />
+    <asp:Button ID="JobMatlButton" runat="server" Text="Job Material Transactions"  
+        Width="343px" CssClass="button_green" style="margin-top:2px" />
+    <asp:Button ID="CycleCountUpdateButton" runat="server" 
+        Text="Cycle Count Update"  Width="343px" CssClass="button_green" style="margin-top:2px" />
+    <asp:Button ID="OrderShippingButton" runat="server" Text="Order Shipping"  
+        Width="343px" CssClass="button_green" style="margin-top:2px" />
+    <asp:Button ID="SignOutButton" runat="server" Text="Sign out" Width="343px" style="margin-top:2px"
+        OnClientClick="javascript:return confirm('Confirm sign out?');" CssClass="button_red" />
+</div>
+</asp:Content>

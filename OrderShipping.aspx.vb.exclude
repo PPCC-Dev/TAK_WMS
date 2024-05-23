@@ -1,0 +1,638 @@
+﻿Imports System.Xml
+Imports System.Globalization
+
+Partial Class OrderShipping
+    Inherits System.Web.UI.Page
+    Dim oWS As SLWebServices.DOWebServiceSoapClient
+
+    Protected Sub Page_Load(ByVal sender As Object, ByVal e As System.EventArgs) Handles Me.Load
+        Try
+            'Verify Employee
+            If Session("Employee") Is Nothing Then
+                Response.Redirect("default_hh.aspx")
+            Else
+                If Session("Employee").ToString = "" Then
+                    Response.Redirect("default_hh.aspx")
+                End If
+            End If
+
+            calTransDate.Visible = False
+            If Session("Token") Is Nothing Then
+                Response.Redirect("signin_hh.aspx")
+            Else
+                If Session("Token").ToString = "" Then
+                    Response.Redirect("signin_hh.aspx")
+                Else
+                    If IsPostBack = False Then
+                        labError.Text = ""
+                        txtOrder.Enabled = False
+                        txtCustomer.Enabled = False
+                        txtCustName.Enabled = False
+
+                        LoadEmployeeUser()
+                        LoadUserInfo()
+                        LoadReasonCode()
+                        'LoadReasonCode()
+
+                        Session("ConfirmClearAll") = 0
+                        btnTransDate.UseSubmitBehavior = False
+                        btnClearAll.UseSubmitBehavior = False
+                        btnCancel.UseSubmitBehavior = False
+                        btnProcess.UseSubmitBehavior = False
+                        'txtTransDate.Text = Format(Now, "dd/MM/yyyy")
+                        'Modify by S7
+                        Dim en As New CultureInfo("en-US")
+                        txtTransDate.Text = Now.Date.ToString("dd/MM/yyyy", en)
+
+                    End If
+                End If
+            End If
+        Catch ex As Exception
+            labError.Text = "Page_Load() " & ex.Message
+        End Try
+       
+    End Sub
+
+    Protected Sub btnTransDate_Click(sender As Object, e As System.EventArgs) Handles btnTransDate.Click
+        If calTransDate.Visible = False Then
+            calTransDate.Visible = True
+        End If
+    End Sub
+
+    Sub LoadEmployeeUser()
+        'Modify By S7
+        Try
+            ddlEmployee.Items.Clear()
+            Dim Filter As String = ""
+
+            'Load Employee User
+            Dim ds As Data.DataSet
+            Filter = "UserName='" & Session("UserName").ToString & "'"
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Users", "EmpNum, EmpName", Filter, "EmpNum", "", 0)
+            For Each dRow As Data.DataRow In ds.Tables(0).Rows
+                ddlEmployee.Items.Add(New ListItem(dRow("EmpNum") & " -- " & dRow("EmpName"), dRow("EmpNum")))
+            Next
+
+            If Session("Employee") IsNot Nothing Then
+                If Session("Employee").ToString <> "" Then
+                    Dim ListItem As ListItem = ddlEmployee.Items.FindByValue(Session("Employee").ToString)
+                    If ListItem IsNot Nothing Then
+                        ddlEmployee.SelectedValue = Session("Employee").ToString
+                    End If
+                End If
+            End If
+        Catch ex As Exception
+            labError.Text = "LoadEmployeeUser() " & ex.Message
+        End Try
+
+    End Sub
+
+    Sub LoadReasonCode()
+        Try
+            ReasonCodeDropDown.Items.Clear()
+            Dim Filter As String = ""
+            Dim ds As New Data.DataSet
+            Dim oWS As New SLWebServices.DOWebServiceSoapClient
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLReasons", "ReasonCode, Description", "ReasonClass = 'CO RETURN'", "ReasonCode", "", 0)
+            For Each drow As Data.DataRow In ds.Tables(0).Rows
+                ReasonCodeDropDown.Items.Add(New ListItem(drow("ReasonCode") & "-" & drow("Description"), drow("ReasonCode")))
+            Next
+        Catch ex As Exception
+            labError.Text = "LoadReasonCode(): " & ex.Message
+        End Try
+    End Sub
+
+    'Sub LoadReasonCode()
+    '    Try
+    '        ReasonDropDown.Items.Clear()
+    '        Dim Filter As String = "ReasonClass='CO RETURN'"
+    '        Dim ds As New Data.DataSet
+    '        oWS = New SLWebServices.DOWebServiceSoapClient
+    '        ds = oWS.LoadDataSet(Session("Token").ToString, "SLReasons", "ReasonCode, Description", Filter, "", "", 0)
+    '        For Each dRow As Data.DataRow In ds.Tables(0).Rows
+    '            ReasonDropDown.Items.Add(New ListItem(dRow("ReasonCode") & " -- " & dRow("Description"), dRow("ReasonCode")))
+    '        Next
+    '        ReasonDropDown.Items.Insert(0, New ListItem("", ""))
+
+    '    Catch ex As Exception
+    '        labError.Text = ex.Message
+    '    End Try
+    'End Sub
+
+    Protected Sub calTransDate_Selected(sender As Object, e As System.EventArgs) Handles calTransDate.SelectionChanged
+        If IsDate(calTransDate.SelectedDate.Date) = True Then
+            txtTransDate.Text = calTransDate.SelectedDate.Date
+            Session("TransDate") = calTransDate.SelectedDate.Date
+        End If
+    End Sub
+
+    'Load User Info.
+    Sub LoadUserInfo()
+        Try
+            'Dim ds As Data.DataSet
+            'Dim PropertyList As String = ""
+            'Dim Filter As String = ""
+            'Dim UserId As Decimal
+
+            'Filter = "Username='" & Session("UserName").ToString & "'"
+            'PropertyList = "UserId, Whse"
+            'ds = New Data.DataSet
+            'oWS = New SLWebServices.DOWebServiceSoapClient
+            'ds = oWS.LoadDataSet(Session("Token").ToString, "SLUserLocals", PropertyList, Filter, "", "", 0)
+            'If ds.Tables(0).Rows.Count > 0 Then
+            '    UserId = ds.Tables(0).Rows(0)("UserId")
+            '    txtWhse.Text = ds.Tables(0).Rows(0)("Whse")
+            '    txtWhse.Enabled = False
+            '    Session("Whse") = txtWhse.Text
+            'End If
+
+            Dim ds As Data.DataSet
+            Dim PropertyList As String = ""
+            Dim Filter As String = ""
+            Dim UserId As Decimal
+
+            Filter = "Username='" & Session("UserName").ToString & "'"
+            PropertyList = "UserId, UserNamesUf_UserNames_Whse"
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_UserNames", PropertyList, Filter, "", "", 0)
+            If ds.Tables(0).Rows.Count > 0 Then
+                UserId = ds.Tables(0).Rows(0)("UserId").ToString
+            End If
+
+            Filter = "UserId='" & UserId & "'"
+            PropertyList = "UserCode, Whse"
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLUserLocals", PropertyList, Filter, "", "", 0)
+            If ds.Tables(0).Rows.Count > 0 Then
+                txtWhse.Text = ds.Tables(0).Rows(0)("Whse").ToString
+                txtWhse.Enabled = False
+            End If
+
+            Session("Whse") = txtWhse.Text
+        Catch ex As Exception
+            labError.Text = "LoadUserInfo() " & ex.Message
+        End Try
+
+    End Sub
+
+    Protected Sub txtBarcodeOrderShipping_Change(sender As Object, e As System.EventArgs) Handles txtBarcodeOrderShipping.TextChanged
+        Try
+            Dim ds As Data.DataSet
+            Dim PropertyList As String = ""
+            Dim Filter As String = ""
+            Dim CONum As String
+            Dim CustNum As String
+            Dim EKANBAN As String
+            Dim Name As String
+
+            If txtBarcodeOrderShipping.Text = "" Or Trim(txtBarcodeOrderShipping.Text) = "" Then Exit Sub
+            If ReturnOrderCheckBox.Checked Then
+                ReasonCodeDropDown.Enabled = True
+            Else
+                ReasonCodeDropDown.Enabled = False
+            End If
+
+            ReturnOrderCheckBox.Enabled = False
+            If Not ReturnOrderCheckBox.Checked Then
+                CustNum = ""
+                CONum = Left(txtBarcodeOrderShipping.Text.ToString, 10)
+                Session("CONum") = CONum
+                EKANBAN = ""
+                Name = ""
+
+                Filter = "co_num='" & CONum & "'"
+                PropertyList = "CustNum"
+                ds = New Data.DataSet
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                ds = oWS.LoadDataSet(Session("Token").ToString, "SLCos", PropertyList, Filter, "", "", 0)
+                If ds.Tables(0).Rows.Count > 0 Then
+                    CustNum = ds.Tables(0).Rows(0)("CustNum")
+                    txtCustomer.Text = CustNum
+                End If
+
+                If CustNum = "" Then
+                    labError.Text = "Can not find customer Order."
+                    labError.ForeColor = Drawing.Color.Red
+                    Exit Sub
+                Else
+                    txtOrder.Text = CONum
+                    txtOrder.Enabled = False
+                End If
+
+                Filter = "CustNum='" & CustNum & "'"
+                PropertyList = "cusUf_customer_EKanban,Name"
+                ds = New Data.DataSet
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                ds = oWS.LoadDataSet(Session("Token").ToString, "SLCustomers", PropertyList, Filter, "", "", 0)
+                If ds.Tables(0).Rows.Count > 0 Then
+                    EKANBAN = ds.Tables(0).Rows(0)("cusUf_customer_Ekanban").ToString
+                    Name = ds.Tables(0).Rows(0)("Name").ToString
+                    txtCustName.Text = Name
+                End If
+
+                Session("PickList") = txtBarcodeOrderShipping.Text
+                txtTag.Text = ""
+                'txtBarcodeOrderShipping.Enabled = False
+
+                InsertTag()
+
+                If EKANBAN = "" Then
+                    txtKanban.Text = ""
+                    txtKanban.Enabled = False
+                    txtTag.Focus()
+                    Session("ReqKB") = "0"
+                Else
+                    txtKanban.Enabled = True
+                    txtKanban.Focus()
+                    Session("ReqKB") = "1"
+                End If
+
+
+            Else
+                CustNum = ""
+                CONum = Left(txtBarcodeOrderShipping.Text.ToString, 10)
+                Session("CONum") = CONum
+                EKANBAN = ""
+                Name = ""
+
+                Filter = "co_num='" & CONum & "'"
+                PropertyList = "CustNum"
+                ds = New Data.DataSet
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                ds = oWS.LoadDataSet(Session("Token").ToString, "SLCos", PropertyList, Filter, "", "", 0)
+                If ds.Tables(0).Rows.Count > 0 Then
+                    CustNum = ds.Tables(0).Rows(0)("CustNum")
+                    txtCustomer.Text = CustNum
+                End If
+
+                If CustNum = "" Then
+                    labError.Text = "Can not find customer Order."
+                    labError.ForeColor = Drawing.Color.Red
+                    Exit Sub
+                Else
+                    txtOrder.Text = CONum
+                    txtOrder.Enabled = False
+                End If
+
+                Filter = "CustNum='" & CustNum & "'"
+                PropertyList = "cusUf_customer_EKanban,Name"
+                ds = New Data.DataSet
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                ds = oWS.LoadDataSet(Session("Token").ToString, "SLCustomers", PropertyList, Filter, "", "", 0)
+                If ds.Tables(0).Rows.Count > 0 Then
+                    EKANBAN = ds.Tables(0).Rows(0)("cusUf_customer_Ekanban").ToString
+                    Name = ds.Tables(0).Rows(0)("Name").ToString
+                    txtCustName.Text = Name
+                End If
+
+                Session("PickList") = txtBarcodeOrderShipping.Text
+                txtTag.Text = ""
+
+                If EKANBAN = "" Then
+                    txtKanban.Text = ""
+                    txtKanban.Enabled = False
+                    txtTag.Focus()
+                    Session("ReqKB") = "0"
+                Else
+                    txtKanban.Enabled = True
+                    txtKanban.Focus()
+                    Session("ReqKB") = "1"
+                End If
+
+
+                PropertyList = "TagID, CoLine, Item, ItemDescription, UM, TagQty, QtyOrderedConv, QtyShipped"
+                Dim PickList As String = "PickList='" & Session("PickList").ToString & "' And Returned = 0"
+                ds = New Data.DataSet
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                ds = oWS.LoadDataSet(Session("Token"), "PPCC_ShippingTags", PropertyList, PickList, "", "", 0)
+                GridView1.DataSource = ds.Tables(0)
+                GridView1.DataBind()
+
+                GridView1.Visible = True
+                grdOrderShipping.Visible = False
+
+            End If
+            
+
+        Catch ex As Exception
+            labError.Text = ex.Message
+        End Try
+
+
+    End Sub
+
+    Sub InsertTag()
+        Try
+            Dim PickList As String = Session("PickList")
+            Dim TagID As String = Trim(txtTag.Text)
+            Dim TransDate As String = txtTransDate.Text
+
+            If Not ReturnOrderCheckBox.Checked Then
+
+                Dim Whse As String = Session("Whse")
+                Dim CONum As String = Session("CONum")
+                Dim EmpNum As String = ddlEmployee.SelectedValue
+
+
+                Dim Ret As String = ""
+                Dim ReqKB As String = Session("ReqKB")
+                Dim KANBAN As String = txtKanban.Text
+
+                If chkReturn.Checked = True Then
+                    Ret = "1"
+                Else
+                    Ret = "0"
+                End If
+
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                Dim Parms As String = "<Parameters><Parameter>" & PickList & "</Parameter>" & _
+                    "<Parameter>" & Whse & "</Parameter>" & _
+                    "<Parameter>" & CONum & "</Parameter>" & _
+                    "<Parameter>" & "" & " </Parameter>" & _
+                    "<Parameter>" & "" & " </Parameter>" & _
+                    "<Parameter>" & EmpNum & " </Parameter>" & _
+                    "<Parameter>" & TransDate & " </Parameter>" & _
+                    "<Parameter>" & TagID & " </Parameter>" & _
+                    "<Parameter ByRef='Y'>" & "" & "</Parameter>" & _
+                    "<Parameter ByRef='Y'>" & "" & "</Parameter>" & _
+                    "<Parameter>" & Ret & " </Parameter>" & _
+                    "<Parameter>" & ReqKB & " </Parameter>" & _
+                    "<Parameter>" & KANBAN & " </Parameter>" & _
+                    "</Parameters>"
+
+
+                Dim res As Object
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                res = oWS.CallMethod(Session("Token").ToString, "PPCC_OrderShippings", "PPCC_OrderShippingInsert", Parms)
+                labError.Text = ""
+
+                If res = 0 Then
+                    Dim doc As XmlDocument = New XmlDocument()
+                    doc.LoadXml(Parms)
+                    Dim i As Integer = 1
+                    For Each node As XmlNode In doc.DocumentElement
+                        If i = 9 Then
+                            If node.InnerText <> "0" Then
+                                labError.ForeColor = Drawing.Color.Red
+                            Else
+                                txtBarcodeOrderShipping.Enabled = False
+                                ddlEmployee.Enabled = False
+                                txtTransDate.Enabled = False
+                                btnTransDate.Enabled = False
+                                labError.ForeColor = Drawing.Color.Black
+                            End If
+                        End If
+                        If i = 10 Then
+                            labError.Text = node.InnerText
+                        End If
+                        i += 1
+                    Next
+                Else
+                    labError.Text = ""
+                End If
+                RebindGrid()
+            Else
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                Dim Parms As String = "<Parameters><Parameter>" & PickList & "</Parameter>" & _
+                        "<Parameter>" & TagID & "</Parameter>" & _
+                        "<Parameter ByRef='Y'>" & DBNull.Value & "</Parameter>" & _
+                        "<Parameter ByRef='Y'>" & DBNull.Value & " </Parameter>" & _
+                        "<Parameter>" & Session("UserName").ToString & " </Parameter>" & _
+                        "<Parameter>" & Session("Employee").ToString & " </Parameter>" & _
+                        "<Parameter>" & TransDate & " </Parameter>" & _
+                        "<Parameter>" & ReasonCodeDropDown.SelectedValue & " </Parameter>" & _
+                        "</Parameters>"
+
+                Dim res As Object
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                res = oWS.CallMethod(Session("Token").ToString, "PPCC_ShippingTags", "PPCC_ReturnShippedTagSp", Parms)
+                labError.Text = ""
+
+                If res = 0 Then
+                    Dim doc As XmlDocument = New XmlDocument()
+                    doc.LoadXml(Parms)
+                    Dim i As Integer = 1
+                    For Each node As XmlNode In doc.DocumentElement
+                        If i = 3 Then
+                            If node.InnerText <> "0" Then
+                                labError.ForeColor = Drawing.Color.Red
+                            Else
+                                txtBarcodeOrderShipping.Enabled = False
+                                ddlEmployee.Enabled = False
+                                txtTransDate.Enabled = False
+                                btnTransDate.Enabled = False
+                                labError.ForeColor = Drawing.Color.Black
+                            End If
+                        End If
+
+                        If i = 4 Then
+                            labError.Text = node.InnerText
+                        End If
+                        i += 1
+                    Next
+                End If
+
+
+                Dim PropertyList As String = "TagID, CoLine, Item, ItemDescription, UM, TagQty, QtyOrderedConv, QtyShipped"
+                Dim Filter As String = "PickList='" & Session("PickList").ToString & "' And Returned = 0"
+                Dim ds As New Data.DataSet
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                ds = oWS.LoadDataSet(Session("Token"), "PPCC_ShippingTags", PropertyList, Filter, "", "", 0)
+                GridView1.DataSource = ds.Tables(0)
+                GridView1.DataBind()
+
+                GridView1.Visible = True
+                grdOrderShipping.Visible = False
+            End If
+
+        Catch ex As Exception
+            labError.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Protected Sub txtKanban_Change(sender As Object, e As System.EventArgs) Handles txtKanban.TextChanged
+        If txtKanban.Text <> "" Then
+            Session("Kanban") = txtKanban.Text
+            txtKanban.Enabled = False
+            InsertTag()
+            txtTag.Focus()
+        End If
+    End Sub
+
+    Protected Sub txtTagID_Change(sender As Object, e As System.EventArgs) Handles txtTag.TextChanged
+        If txtTag.Text <> "" Then
+
+            InsertTag()
+            txtTag.Text = ""
+            txtTag.Focus()
+
+        End If
+    End Sub
+
+    Protected Sub RebindGrid()
+        Try
+            Dim PickList As String = Session("PickList")
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Dim Parms As String = "<Parameters><Parameter>" & PickList & "</Parameter>" & _
+                "<Parameter>" & Session("UserName").ToString & "</Parameter>" & _
+                "</Parameters>"
+
+            Dim res As Object
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            res = oWS.CallMethod(Session("Token").ToString, "PPCC_OrderShippingShowQties", "PPCC_OrderShippingInsertShow", Parms)
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Dim Filter As String = "CreatedBy= '" & Session("UserName").ToString & "' and picklist='" & PickList & "'"
+            Dim PropList As String = "co_line, item, description, u_m, qty_tag, qty_ordered, qty_shipped"
+            Dim ds As New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_OrderShippingShowQties", PropList, Filter, "co_line", "", 0)
+
+            grdOrderShipping.DataSource = ds.Tables(0)
+            grdOrderShipping.DataBind()
+        Catch ex As Exception
+            labError.Text = ex.Message
+        End Try
+
+
+    End Sub
+
+    Protected Sub btnClearAll_Click(sender As Object, e As System.EventArgs) Handles btnClearAll.Click
+        Try
+            If Session("ConfirmClearAll") = 0 Then
+                Session("ConfirmClearAll") = 1
+            Else
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                Dim Parms As String = "<Parameters><Parameter>" & Session("PickList") & "</Parameter>" & _
+                                            "</Parameters>"
+                Dim res As Object
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                res = oWS.CallMethod(Session("Token").ToString, "PPCC_OrderShippings", "PPCC_OrderShippingClearAll", Parms)
+
+                If res = 0 Then
+                    Dim doc As XmlDocument = New XmlDocument()
+                    doc.LoadXml(Parms)
+                    Dim i As Integer = 1
+                    For Each node As XmlNode In doc.DocumentElement
+                        If i = 3 Then
+                            If node.InnerText <> "0" Then
+                                labError.ForeColor = Drawing.Color.Red
+                            Else
+                                labError.ForeColor = Drawing.Color.Black
+                            End If
+                        End If
+                        If i = 4 Then
+                            labError.Text = node.InnerText
+                        End If
+                        i += 1
+                    Next
+                End If
+
+                RebindGrid()
+                ddlEmployee.Enabled = True
+                txtTransDate.Enabled = True
+                btnTransDate.Enabled = True
+                txtBarcodeOrderShipping.Enabled = True
+                ReturnOrderCheckBox.Enabled = True
+                ReturnOrderCheckBox.Checked = False
+                ReasonCodeDropDown.Enabled = False
+
+                grdOrderShipping.Visible = True
+                GridView1.Visible = False
+
+                txtBarcodeOrderShipping.Text = ""
+                txtBarcodeOrderShipping.Focus()
+                Session("ConfirmClearAll") = 0
+                labError.Text = ""
+            End If
+            changeCaptionClearAll()
+        Catch ex As Exception
+            labError.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Sub changeCaptionClearAll()
+        If Session("ConfirmClearAll") = 0 Then
+            btnClearAll.Text = "Clear All"
+        Else
+            btnClearAll.Text = "Confirm"
+        End If
+    End Sub
+
+    Protected Sub btnScan_Click(sender As Object, e As System.EventArgs) Handles btnScan.Click
+        Try
+            txtTagID_Change(sender, e)
+        Catch ex As Exception
+            labError.Text = ex.Message
+        End Try
+
+
+    End Sub
+
+    Protected Sub btnProcess_Click(sender As Object, e As System.EventArgs) Handles btnProcess.Click
+        Try
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Dim Parms As String = "<Parameters><Parameter>" & Session("PickList") & "</Parameter>" & _
+                "<Parameter ByRef='Y'>" & "" & "</Parameter>" & _
+                "<Parameter ByRef='Y'>" & "" & "</Parameter>" & _
+                "<Parameter>" & Session("UserName").ToString & "</Parameter>" & _
+                "<Parameter>" & Session("Employee").ToString & "</Parameter>" & _
+                "</Parameters>"
+            Dim res As Object
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            res = oWS.CallMethod(Session("Token").ToString, "PPCC_OrderShippings", "PPCC_OrderShippingSP", Parms)
+
+            If res = 0 Then
+                Dim doc As XmlDocument = New XmlDocument()
+                doc.LoadXml(Parms)
+                Dim i As Integer = 1
+                For Each node As XmlNode In doc.DocumentElement
+                    If i = 2 Then
+                        If node.InnerText <> "0" Then
+                            labError.ForeColor = Drawing.Color.Red
+                        Else
+                            labError.ForeColor = Drawing.Color.Black
+                            txtBarcodeOrderShipping.Enabled = True
+                            txtKanban.Enabled = True
+                            txtTransDate.Enabled = True
+                            ddlEmployee.Enabled = True
+                            btnTransDate.Enabled = True
+                            txtBarcodeOrderShipping.Text = ""
+                            txtKanban.Text = ""
+                            txtTransDate.Text = ""
+                        End If
+                    End If
+                    If i = 3 Then
+                        labError.Text = node.InnerText
+                    End If
+                    i += 1
+                Next
+            End If
+
+            RebindGrid()
+        Catch ex As Exception
+            labError.Text = ex.Message
+        End Try
+    End Sub
+
+    'Protected Sub ReturnCoCheckBox_CheckedChanged(sender As Object, e As System.EventArgs) Handles ReturnCoCheckBox.CheckedChanged
+    '    If Not ReturnCoCheckBox.Checked Then
+    '        ReasonDropDown.Enabled = False
+    '        ReasonDropDown.SelectedIndex = 0
+    '    Else
+    '        ReasonDropDown.Enabled = True
+    '    End If
+    'End Sub
+
+    Protected Sub ReturnOrderCheckBox_CheckedChanged(sender As Object, e As System.EventArgs) Handles ReturnOrderCheckBox.CheckedChanged
+
+    End Sub
+End Class

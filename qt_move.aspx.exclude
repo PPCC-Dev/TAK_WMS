@@ -1,0 +1,358 @@
+﻿<%@ Page Title="Quantity Move" Language="VB" MasterPageFile="~/MasterPage.master" AutoEventWireup="false" CodeFile="qt_move.aspx.vb" Inherits="qt_move" %>
+
+<asp:Content ID="Content1" ContentPlaceHolderID="head" Runat="Server">
+    
+    <link href="css/jquery-ui.css" rel="stylesheet" type="text/css" />
+    <script src="js/jquery-1.10.2.js" type="text/javascript"></script>
+    <script src="js/jquery-ui.js" type="text/javascript"></script>
+    <link href="css/examples.css" rel="stylesheet" type="text/css" />
+    <style type="text/css">
+        .style1
+        {
+            height: 37px;
+        }
+    </style>
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+<div class="row" style="padding-top: 10px">
+    <div class="col-lg-12">
+        <div class="panel panel-default">
+            <div class="panel-heading"><label>Quantity Move</label></div>
+            <div class="panel-body">
+              <%--  <asp:Panel ID="NotPassNotifyPanel" runat="server" CssClass= "alert alert-danger alert-dismissable">
+                    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+                    <asp:Literal ID="NotPassText" runat="server"></asp:Literal>
+                </asp:Panel>--%>
+
+                <div id = "NotPassNotifyPanel" class= "alert alert-danger alert-dismissable">
+                     <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+                    <%--<asp:Literal ID="NotPassText" runat="server"></asp:Literal>--%>
+                    <asp:Label ID="NotPassText" runat="server" Text=""></asp:Label>
+                </div>
+
+                <table>
+
+                    <tr>
+                        <td style="text-align: right">&nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                        </td>
+                        <td style="text-align: right">&nbsp;</td>
+                        <td style="text-align: right">&nbsp;</td>
+                        <td style="text-align: right">&nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                                &nbsp;</td>
+                    </tr>
+                    
+                    <tr style="display: none">
+                        <td style="text-align: right">
+                            <label>
+                            จากที่ตั้ง</label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                            <asp:TextBox ID="FromSiteTextBox" runat="server" ReadOnly="True" 
+                                    CssClass="form-control" Width="100px"></asp:TextBox></td>
+                        <td style="text-align: right">
+                            <label>
+                            ไปที่ตั้ง</label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                            <asp:TextBox ID="ToSiteTextBox" runat="server" ReadOnly="True" 
+                                    CssClass="form-control" Width="100px"></asp:TextBox></td>
+                        <td style="text-align: right">&nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                            &nbsp;</td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="text-align: right">
+                            <label>วันที่ทำรายการ</label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                            <asp:TextBox ID="TransDateTextBox" runat="server" Width="150px" style="text-align:center"
+                                CssClass="form-control"></asp:TextBox>
+                            <asp:HiddenField ID="TransDateHiddenField" runat="server" />
+                        </td>
+                        <td style="text-align: right">
+                            <label>ผู้ทำรายการ</label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px" colspan="3">
+                          
+                                <asp:DropDownList ID="UserDropDown" runat="server" 
+                                style="text-align: left" CssClass="form-control" Width="300px" 
+                                    BackColor="#FFFF99" Enabled="False"> 
+                                </asp:DropDownList>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="text-align: right"><label>จากคลัง</label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                            
+                            <div ID="div-whse-from">
+                                <asp:TextBox ID="FromWhseTextBox" runat="server" ReadOnly="True" 
+                                        CssClass="form-control typeahead" Width="100px" AutoPostBack="True" OnTextChanged="FromWhseTextBox_TextChanged"></asp:TextBox>
+                            </div>
+                            <asp:DropDownList ID="FromWhseDropDown" runat="server" style="display: none">
+                            </asp:DropDownList>
+                        </td>
+                        <td style="text-align: right"><label>ไปคลัง</label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                         <div ID="div-whse-to">
+                            <asp:TextBox ID="ToWhseTextBox" runat="server" ReadOnly="True" 
+                                    CssClass="form-control typeahead" Width="100px" AutoPostBack="True" OnTextChanged="ToWhseTextBox_TextChanged"></asp:TextBox>
+                        </div>
+                        </td>
+                        <td style="text-align: right">&nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                                &nbsp;</td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="text-align: right"><label>จาก ที่จัดเก็บ</label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                                <asp:DropDownList ID="FromLocationDropDown" runat="server" 
+                                CssClass="form-control" Width="200px" BackColor="#FFFF99">
+                            </asp:DropDownList>
+                                <asp:HiddenField ID="FromLocationHiddenField" runat="server" />
+                        </td>
+                        <td style="text-align: right; padding-left:20px"><label>ไป ที่จัดเก็บ</label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                                <asp:DropDownList ID="ToLocationDropDown" runat="server" 
+                                CssClass="form-control" Width="200px" BackColor="#FFFF99">
+                            </asp:DropDownList>
+                                <asp:HiddenField ID="ToLocationHiddenField" runat="server" />
+                        </td>
+                        <td style="text-align: left; padding-left: 5px" colspan="2">
+                                <asp:Button ID="SwitchButton" runat="server" Text="สลับ" Width="150px" 
+                                            CssClass="btn btn-success" UseSubmitBehavior="False" /></td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="text-align: right" class="style1"><label>รหัสบาร์โค้ด</label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px" colspan="3" class="style1">
+                          
+                            <asp:TextBox ID="BarCodeTextBox" runat="server" 
+                                    Width="300px" CssClass="form-control"></asp:TextBox>
+                            <asp:Button ID="ScanBarCodeButton" runat="server"
+                                        Text="Scan" CssClass="btn btn-default" Width="100px" UseSubmitBehavior="true" /></td>
+                        <td style="text-align: left; padding-left: 5px" colspan="2" class="style1">
+                                <asp:Button ID="ProcessButton" runat="server" Text="ดำเนินการ" Width="150px" 
+                                            CssClass="btn btn-primary" 
+                                            OnClientClick="javascript:return confirm('ยืนยันการทำรายการ?');" 
+                                   
+                                    />
+                                &nbsp;<asp:Button ID="ClearAllButton" runat="server" Text="ยกเลิกทั้งหมด" Width="150px" 
+                                            CssClass="btn btn-danger" 
+                                    OnClientClick="javascript:return confirm('ยืนยันลบทั้งหมด?');" 
+                                  
+                                    /></td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="text-align: right">
+                            &nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                             <div class="checkbox">
+                                        <label>
+                                            <asp:CheckBox ID="DeleteCheckBox" runat="server" />ยกเลิกบางรายการ
+                                        </label>
+                                    </div></td>
+                        <td colspan="4">
+                            <asp:Label ID="Label1" runat="server" Text="จำนวนรวม: "></asp:Label>
+                            <asp:Label ID="TotalQtyLabel" runat="server"></asp:Label>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="text-align: left" colspan="6">
+                            <div class="dataTable_wrapper">
+                                <asp:GridView ID="QtyMoveGridView" runat="server" AutoGenerateColumns="false" 
+                                    CssClass="table table-striped table-bordered table-hover" ShowFooter="false" 
+                                    ShowHeader="true">
+                                    <Columns>
+                                        <asp:TemplateField>
+                                            <ItemTemplate>
+                                                <asp:Button ID="DeleteButton" runat="server" 
+                                                    CommandArgument='<%# Eval("RowPointer") %>' CommandName="DeleteMove" UseSubmitBehavior="false"
+                                                    CssClass="btn btn-danger" Text="ลบ" />
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="รหัสบาร์โค้ด">
+                                            <ItemTemplate>
+                                                <asp:Label ID="TagLabel" runat="server" style="vertical-align:middle" 
+                                                    Text='<%# Eval("TagID") %>'></asp:Label>
+                                                <asp:HiddenField ID="RowPointerHidden" runat="server" Value='<%# Eval("RowPointer") %>' />
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="จากที่เก็บ">
+                                            <ItemTemplate>
+                                                <asp:Label ID="FromLocationLabel" runat="server" style="vertical-align:middle" 
+                                                    Text='<%# Eval("FromLoc") %>'></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="ไปที่เก็บ">
+                                            <ItemTemplate>
+                                                <asp:Label ID="ToLocationLabel" runat="server" style="vertical-align:middle" 
+                                                    Text='<%# Eval("ToLoc") %>'></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="รหัสสินค้า">
+                                            <ItemTemplate>
+                                                <asp:Label ID="ItemLabel" runat="server" style="vertical-align:middle" 
+                                                    Text='<%# Eval("Item") %>'></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="ชื่อสินค้า">
+                                            <ItemTemplate>
+                                                <asp:Label ID="ItemDescriptionLabel" runat="server" 
+                                                    style="text-align:center; vertical-align:middle" 
+                                                    Text='<%# Eval("Description") %>'></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="ล็อต">
+                                            <ItemTemplate>
+                                                <asp:Label ID="LotLabel" runat="server" 
+                                                    style="text-align:center; vertical-align:middle" 
+                                                    Text='<%# Eval("Lot") %>'></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="จำนวน" ItemStyle-HorizontalAlign="Right">
+                                            <ItemTemplate>
+                                                <asp:Label ID="QtyLabel" runat="server" 
+                                                    style="text-align:center; vertical-align:middle" 
+                                                    Text='<%# Eval("Qty", "{0:N0}") %>'></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="หน่วยนับ" ItemStyle-HorizontalAlign="Center">
+                                            <ItemTemplate>
+                                                <asp:Label ID="UMLabel" runat="server" style="text-align:center" 
+                                                    Text='<%# Eval("UM") %>'></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="Error !!!">
+                                            <ItemTemplate>
+                                                <asp:Label ID="ErrorLabel" runat="server" 
+                                                    style="text-align:center; vertical-align:middle" 
+                                                    Text='<%# Eval("ErrMsg") %>' ForeColor="Red"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                    </Columns>
+                                </asp:GridView>
+                            </div>
+                        </td>
+                    </tr>
+                    
+                </table>
+
+
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- jQuery -->
+<!-- Bootstrap Core JavaScript -->
+<script src="bower_components/bootstrap/dist/js/bootstrap.min.js" type="text/javascript"></script>
+<!-- Metis Menu Plugin JavaScript -->
+<script src="bower_components/metisMenu/dist/metisMenu.min.js" type="text/javascript"></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="dist/js/sb-admin-2.js" type="text/javascript"></script>
+
+<!-- DataTables JavaScript -->
+<script src="bower_components/DataTables/media/js/jquery.dataTables.min.js" type="text/javascript"></script>
+<script src="bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.min.js" type="text/javascript"></script>
+
+<script src="js/typeahead.bundle.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        var alert_text = $('#<%= NotPassText.ClientID%>').text();
+
+        if (alert_text == '' || alert_text == null) {
+            $('#NotPassNotifyPanel').hide();
+        }
+        else {
+            $('#NotPassNotifyPanel').show();
+        }
+
+        $('#<%= QtyMoveGridView.ClientID%>').DataTable({
+            responsive: true
+                , "bSort": false
+                , "bPaginate": true
+                , "bAutoWidth": false
+                , "aLengthMenu": [[-1, 10, 20, 50, 100, 1000], ["All", 10, 20, 50, 100, 1000]]
+        });
+
+        $("#<%= TransDateTextBox.ClientID %>").datepicker({
+            dateFormat: "dd/mm/yy"
+        });
+
+        $('#<%= TransDateTextBox.ClientID%>').change(function () {
+            var trn_date = $('#<%= TransDateTextBox.ClientID%>').val();
+            var trn_date_hide = $('#<%= TransDateHiddenField.ClientID%>').val();
+            if (trn_date == '') {
+                $('#<%= TransDateTextBox.ClientID%>').val(trn_date_hide);
+            }
+        })
+
+        $('#<%= DeleteCheckBox.ClientID%>').click(function () {
+            $('#<%= BarCodeTextBox.ClientID%>').focus();
+        });
+
+
+
+        var substringMatcher = function (strs) {
+            return function findMatches(q, cb) {
+                var matches, substringRegex;
+                // an array that will be populated with substring matches
+                matches = [];
+                // regex used to determine if a string contains the substring `q`
+                substrRegex = new RegExp(q, 'i');
+                // iterate through the pool of strings and for any string that
+                // contains the substring `q`, add it to the `matches` array
+                $.each(strs, function (i, str) {
+                    if (substrRegex.test(str)) {
+                        matches.push(str);
+                    }
+                });
+                cb(matches);
+            };
+        };
+
+        var arr_whse = [];
+        $('select#<%=FromWhseDropDown.ClientID%>').find('option').each(function () {
+            arr_whse.push($(this).val());
+        });
+
+        $('#div-whse-from .typeahead').typeahead({
+            hint: true,
+            highlight: true,
+            minLength: 0
+        },
+        {
+            name: 'arr_whse',
+            source: substringMatcher(arr_whse)
+        }).bind("typeahead:selected", function (obj, datum, name) {
+            __doPostBack('#<%=FromWhseTextBox.ClientID%>', null);
+        });
+
+        $('#div-whse-to .typeahead').typeahead({
+            hint: true,
+            highlight: true,
+            minLength: 0
+        },
+        {
+            name: 'arr_whse',
+            source: substringMatcher(arr_whse)
+        }).bind("typeahead:selected", function (obj, datum, name) {
+            __doPostBack('#<%=ToWhseTextBox.ClientID%>', null);
+        });
+
+
+    });
+    </script>
+</asp:Content>

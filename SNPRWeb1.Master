@@ -1,0 +1,72 @@
+﻿<%@ Master Language="VB" CodeFile="SNPRWeb1.master.vb" Inherits="SNPRWeb1" %>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head runat="server">
+    <title></title>
+    <asp:ContentPlaceHolder ID="head" runat="server">
+    </asp:ContentPlaceHolder>
+    <link href="SNPRWeb.css" rel="stylesheet" type="text/css" />
+    <%--<meta name="viewport" content="initial-scale=1" />--%>
+    <%--<meta name="viewport" content="width=480" />--%>
+    <%--<meta name="viewport" content="height=600" />--%>
+    <meta name="viewport" content="width=480" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="HandheldFriendly" content="true" />
+    <meta name="MobileOptimized" content="width" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <%--<meta name="viewport" content="width=device-width,initial-scale=1.0" />--%>
+    
+    <style type="text/css">
+        .style1
+        {
+            font-size: small;
+        }
+        .button_green {
+            background-color: #4CAF50; /* Green */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button_blue {
+            background-color: #008CBA; /* Blue */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button_red {
+            background-color: #f44336; /* Red */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+    </style>
+
+</head>
+<body>
+    <form id="form1" runat="server">
+    <div>
+        <asp:Table ID="Table1" runat="server">
+            <asp:TableRow>
+                <asp:TableCell><asp:Label ID="labUserName" runat="server" Text="UserName" CssClass="labels" ></asp:Label></asp:TableCell>
+                <asp:TableCell><asp:Button id="btnMainMenu" runat="server" Text="เมนูหลัก" CssClass="button_green" /></asp:TableCell>
+                <asp:TableCell><asp:Button ID="btnExit" runat="server" Text="ออกจากระบบ" CssClass="button_green" /></asp:TableCell>
+            </asp:TableRow>
+        </asp:Table>
+        <asp:ContentPlaceHolder ID="ContentPlaceHolder1" runat="server">
+        
+        </asp:ContentPlaceHolder>
+    </div>
+    </form>
+</body>
+</html>

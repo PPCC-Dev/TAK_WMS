@@ -1,0 +1,4010 @@
+﻿Imports System.Xml
+Imports System.Runtime.Remoting
+Imports System.Runtime.Remoting.Channels
+Imports System.ComponentModel
+Imports System.Globalization
+Imports System.Drawing.Drawing2D
+Imports System.Drawing
+Imports Spire.Barcode
+Imports System.Drawing.Imaging
+Imports System.IO
+
+Partial Class unposted
+    Inherits System.Web.UI.Page
+    Dim oWS As SLWebServices.DOWebServiceSoapClient
+
+    Private Shared _Jobs As Data.DataSet
+    Private Shared _OperWcs As Data.DataSet
+    Private Shared _MoveToLocation As Data.DataSet
+    Private Shared _Loc As String
+    Private Shared _LocDescription As String
+    Private Shared _SessionID As Guid
+
+    Private Shared Property SessionID() As Guid
+        Get
+            Return _SessionID
+        End Get
+        Set(value As Guid)
+            _SessionID = value
+        End Set
+    End Property
+
+    Private Property LocationDescription As String
+        Get
+            Return _LocDescription
+        End Get
+        Set(value As String)
+            _LocDescription = value
+        End Set
+    End Property
+
+    Private Property Location As String
+        Get
+            Return _Loc
+        End Get
+        Set(value As String)
+            _Loc = value
+        End Set
+    End Property
+
+    Private Property Jobs As Data.DataSet
+        Get
+            Return _Jobs
+        End Get
+        Set(value As Data.DataSet)
+            _Jobs = value
+        End Set
+    End Property
+
+    Private Property OperWcs As Data.DataSet
+        Get
+            Return _OperWcs
+        End Get
+        Set(value As Data.DataSet)
+            _OperWcs = value
+        End Set
+    End Property
+
+    Private Property MoveToLocation As Data.DataSet
+        Get
+            Return _MoveToLocation
+        End Get
+        Set(value As Data.DataSet)
+            _MoveToLocation = value
+        End Set
+    End Property
+
+    'Private Property NotPassNotifyPanel As Object
+
+    Protected Sub Page_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+        Try
+
+                NotPassNotifyPanel.Visible = False
+                'Verify Token
+                If Session("Token") Is Nothing Then
+                    Response.Redirect("signin.aspx")
+                Else
+                    If Session("Token").ToString = "" Then
+                        Response.Redirect("signin.aspx")
+                    End If
+                End If
+
+                'Verify Employee
+                If Session("Employee") Is Nothing Then
+                    Response.Redirect("default.aspx")
+                Else
+                    If Session("Employee").ToString = "" Then
+                        Response.Redirect("default.aspx")
+                    End If
+                End If
+
+                If Session("CanAccessUnposted") <> "1" Then Response.Redirect("default.aspx")
+
+                Call LoadUserInfo()
+
+                Dim en As New CultureInfo("en-US")
+
+
+            If Not Page.IsPostBack Then
+
+                'MsgBox("XXXXX")
+
+                SessionID = Guid.NewGuid
+                Call LoadCriteria()
+
+                Call LoadScrappedReasonCode()
+                Call LoadDownTimeReasonCode()
+
+                TransDateTextBox.Text = Now.Date.ToString("dd/MM/yyyy", en)
+                TransDateHiddenField.Value = Now.Date.ToString("dd/MM/yyyy", en)
+                MoveQtyTextBox.Attributes.Add("readonly", "readonly")
+                'NextOperDropDown.Attributes.Add("readonly", "readonly")
+
+                dt_bf_tag = New Data.DataTable
+                With dt_bf_tag
+                    .Columns.Add("TagID", Type.GetType("System.String"))
+                    .Columns.Add("Qty", Type.GetType("System.Decimal"))
+                End With
+
+                'Clear Unposted Transactions
+                If Label1.Text = Label2.Text Then
+                    Dim oWs As New SLWebServices.DOWebServiceSoapClient
+                    Dim obj As Object
+                    Dim Parms As String = "<Parameters>" & "<Parameter>" & String.Empty & "</Parameter>" & _
+                        "<Parameter>" & Session("Employee").ToString & "</Parameter>" & "</Parameters>"
+
+                    obj = oWs.CallMethod(Session("Token").ToString, "PPCC_JobTrans", "PPCC_WSDeleteJobTranSp", Parms)
+                End If
+
+            Else
+                Call BindEmptyGrid()
+            End If
+
+            BarCodeTextBox.Focus()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub ClearForm()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim en As New CultureInfo("en-US")
+            TransTypeDropDown.SelectedValue = "R"
+            TransDateTextBox.Text = Now.Date.ToString("dd/MM/yyyy", en)
+            TransNumTextBox.Text = ""
+
+            Call LoadJob()
+
+            If JobDropDown.Items.Count > 0 Then
+                JobDropDown.SelectedValue = ""
+            End If
+
+            OperationDropDown.Items.Clear()
+            WcTextBox.Text = ""
+            WcDescriptionTextBox.Text = ""
+            ItemTextBox.Text = ""
+            ItemDescriptionTextBox.Text = ""
+
+            EmpNumDropDown.Items.Clear()
+            PayTypeDropDown.SelectedValue = "R"
+            MachineDropDown.Items.Clear()
+            ProductionShiftDropDown.SelectedValue = ""
+            ShiftDropDown.SelectedValue = ""
+            PcsPerHrsTextBox.Text = "0.000"
+            CompleteQtyTextBox.Text = "0"
+            CompleteUMTextBox.Text = ""
+            MoveQtyTextBox.Text = "0"
+            MoveQtyUM.Text = ""
+            DTStartTimeTextBox.Text = "00:00"
+            DTEndTimeTextBox.Text = "00:00"
+
+            WcTextBox.Text = ""
+            WcDescriptionTextBox.Text = ""
+            TotalHoursTextBox.Text = "0.000"
+            'MoveToLocationTextBox.Text = ""
+            MoveToLocationDropDown.Items.Clear()
+            MoveToLocationDescTextBox.Text = ""
+            EmpCountTextBox.Text = "0"
+            LotDropDown.Items.Clear()
+            ManHoursTextBox.Text = "0.000"
+            RemarkTextBox.Text = ""
+            LeaveHoursTextBox.Text = "0.000"
+            HeadDropDown.SelectedValue = ""
+
+            EmptyReasonDropDown.SelectedIndex = 0
+            'EmptyReasonTextBox.Text = ""
+            EmptyQtyTextBox.Text = "0"
+            EmptyUMDropDown.SelectedIndex = 0
+            EmptyQtyConvTextBox.Text = "0"
+            EmptyBasedUMTextBox.Text = ""
+
+            DTCodeDropDown.SelectedIndex = 0
+            'DTDescriptionTextBox.Text = ""
+            DTStartTimeTextBox.Text = "00:00"
+            DTEndTimeTextBox.Text = "00:00"
+            DTTotalHrsTextBox.Text = "0.00"
+            DTType.Text = ""
+
+            StartTimeTextBox.Text = "00:00"
+            EndTimeTextBox.Text = "00:00"
+            TotalHoursTextBox.Text = "0.000"
+            'lblTagType.Text = ""
+
+            JobTextBox.Text = ""
+            ScrappedGridView.DataSource = Nothing
+            ScrappedGridView.DataBind()
+
+            DTGridView.DataSource = Nothing
+            DTGridView.DataBind()
+
+            BFGridView.DataSource = Nothing
+            BFGridView.DataBind()
+
+            MatchedGridView.DataSource = Nothing
+            MatchedGridView.DataBind()
+
+            dt_bf_tag.Rows.Clear()
+            dt_bf_tag = New Data.DataTable
+            With dt_bf_tag
+                .Columns.Add("TagID", Type.GetType("System.String"))
+                .Columns.Add("Qty", Type.GetType("System.Decimal"))
+            End With
+
+            GridFraction.DataSource = Nothing
+            GridFraction.DataBind()
+
+            txtFraction.Text = ""
+            txtFractionLoc.Text = ""
+            txtQtyBigTag.Text = ""
+            txtQtySmallTag.Text = ""
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+        
+    End Sub
+
+    '1. Load User Info.
+    Sub LoadUserInfo()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim ds As Data.DataSet
+            Dim PropertyList As String = ""
+            Dim Filter As String = ""
+            Dim UserId As Decimal
+
+            Filter = "Username='" & Session("UserName").ToString & "'"
+            PropertyList = "UserId"
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_UserNames", PropertyList, Filter, "", "", 0)
+            If ds.Tables(0).Rows.Count > 0 Then
+                UserId = ds.Tables(0).Rows(0)("UserId").ToString
+            End If
+
+            Filter = "UserId='" & UserId & "'"
+            PropertyList = "UserCode, Whse"
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLUserLocals", PropertyList, Filter, "", "", 0)
+            If ds.Tables(0).Rows.Count > 0 Then
+                UserCodeTextBox.Text = ds.Tables(0).Rows(0)("UserCode").ToString
+                WhseTextBox.Text = ds.Tables(0).Rows(0)("Whse").ToString
+            End If
+
+            If Trim(WhseTextBox.Text) = "" Then
+                NotPassNotifyPanel.Visible = True
+                NotPassText.Text = "No Warehouse !!!"
+            End If
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    '2. Load Job Orders
+    Sub LoadJob()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim Filter As String = ""
+            Dim FirstRow As Data.DataRow
+
+            Jobs = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+
+            'Load Job Orders
+            JobDropDown.Items.Clear()
+            Jobs = oWS.LoadDataSet(Session("Token").ToString, "SLJobs", "Job, Item, Description, QtyReleased", "Stat = 'R' And Type = 'J'", "Job", "", 0)
+            For Each dRow As Data.DataRow In Jobs.Tables(0).Rows
+                JobDropDown.Items.Add(New ListItem(dRow("Job"), dRow("Job")))
+            Next
+
+            FirstRow = Jobs.Tables(0).NewRow
+            FirstRow("Job") = ""
+            FirstRow("Item") = ""
+            FirstRow("Description") = ""
+
+            Jobs.Tables(0).Rows.InsertAt(FirstRow, 0)
+            JobDropDown.Items.Insert(0, New ListItem("", ""))
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    '3. Load Employee User.
+    Sub LoadEmployeeUser()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim Filter As String = ""
+
+            'Load Employee User
+            Dim ds As Data.DataSet
+            Filter = "UserName='" & Session("UserName").ToString & "'"
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Users", "EmpNum, EmpName", Filter, "EmpNum", "", 0)
+            For Each dRow As Data.DataRow In ds.Tables(0).Rows
+                UserDropDown.Items.Add(New ListItem(dRow("EmpNum") & " -- " & dRow("EmpName"), dRow("EmpNum")))
+            Next
+            UserDropDown.Items.Insert(0, New ListItem("", ""))
+
+            If Session("Employee") IsNot Nothing Then
+                If Session("Employee").ToString <> "" Then
+                    Dim ListItem As ListItem = UserDropDown.Items.FindByValue(Session("Employee").ToString)
+                    If ListItem IsNot Nothing Then
+                        UserDropDown.SelectedValue = Session("Employee").ToString
+                    End If
+                End If
+            End If
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    '4. Load Shift Code
+    Sub LoadShiftCode()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim Filter As String = "Shift <> 'A'"
+            Dim ds As Data.DataSet
+
+            'Load Shift Code
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLShifts", "Shift, EffDate", Filter, "Shift", "", 0)
+            For Each dRow As Data.DataRow In ds.Tables(0).Rows
+                ShiftDropDown.Items.Add(New ListItem(dRow("Shift"), dRow("Shift")))
+            Next
+
+            ShiftDropDown.Items.Insert(0, New ListItem("", ""))
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    '6. Load Production Shift
+    Sub LoadProductionShift()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim Filter As String = ""
+            Dim ds As Data.DataSet
+
+            'Load Production Shift
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLShift000s", "SHIFTID, DESCR", "", "SHIFTID", "", 0)
+
+            For Each dRow As Data.DataRow In ds.Tables(0).DefaultView.ToTable(True, "SHIFTID", "DESCR").Rows
+                ProductionShiftDropDown.Items.Add(New ListItem(dRow("SHIFTID") & " - " & dRow("DESCR"), dRow("SHIFTID")))
+            Next
+
+            ProductionShiftDropDown.Items.Insert(0, New ListItem("", ""))
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Sub LoadCriteria()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Call LoadJob()
+            Call LoadEmployeeUser()
+            Call LoadShiftCode()
+            Call LoadProductionShift()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Protected Sub JobDropDown_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles JobDropDown.SelectedIndexChanged
+        'NotPassNotifyPanel.Visible = False
+        'PassNotifyPanel.Visible = False
+
+        'ItemTextBox.Text = Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("Item").ToString
+        'ItemDescriptionTextBox.Text = Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("Description").ToString
+
+        'Call BindOperationAndWc()
+        'Call GetItemInfo()
+    End Sub
+
+    Sub GetItemInfo()
+        Try
+            NotPassNotifyPanel.Visible = False
+
+            'Location Rank 1
+            Dim ds As New Data.DataSet
+            Dim Filter As String = "ItmItem='" & ItemTextBox.Text & "' And Rank= 1 And Whse='" & WhseTextBox.Text & "'"
+            Dim PropertyList As String = "ItmItem, ItmUM, Loc, LocDescription"
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLItemLocs", PropertyList, Filter, "Item", "", 0)
+
+            If ds.Tables(0).Rows.Count > 0 Then
+                Location = ds.Tables(0).Rows(0)("Loc").ToString
+                LocationDescription = ds.Tables(0).Rows(0)("LocDescription").ToString
+                MoveQtyUM.Text = ds.Tables(0).Rows(0)("ItmUM").ToString
+                CompleteUMTextBox.Text = ds.Tables(0).Rows(0)("ItmUM").ToString
+
+                EmptyBasedUMTextBox.Text = ds.Tables(0).Rows(0)("ItmUM").ToString
+                EmptyUMDropDown.SelectedValue = ds.Tables(0).Rows(0)("ItmUM").ToString
+            Else
+                Location = ""
+                LocationDescription = ""
+                MoveQtyUM.Text = ""
+                CompleteUMTextBox.Text = ""
+                EmptyBasedUMTextBox.Text = ""
+            End If
+
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Private Shared dt_match As Data.DataTable
+    Private Shared dt_bf_tag As Data.DataTable
+
+    Sub GetBackflushLots(ByVal QtyScrapped As String, ByVal Selected As Boolean)
+        Try
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            If Not Selected Then
+                Dim Parms As String = "<Parameters><Parameter>" & "1" & "</Parameter>" & _
+                                        "<Parameter>" & "J" & "</Parameter>" & _
+                                        "<Parameter>" & TransNumTextBox.Text & "</Parameter>" & _
+                                        "<Parameter>" & JobTextBox.Text & "</Parameter>" & _
+                                        "<Parameter>" & SuffixTextBox.Text & "</Parameter>" & _
+                                        "<Parameter>" & OperationDropDown.SelectedValue & "</Parameter>" & _
+                                        "<Parameter>" & ItemTextBox.Text & "</Parameter>" & _
+                                        "<Parameter>" & DBNull.Value & "</Parameter>" & _
+                                        "<Parameter>" & DBNull.Value & "</Parameter>" & _
+                                        "<Parameter>" & DBNull.Value & "</Parameter>" & _
+                                        "<Parameter>" & TransDateTextBox.Text & "</Parameter>" & _
+                                        "<Parameter>" & WhseTextBox.Text & "</Parameter>" & _
+                                        "<Parameter>" & DBNull.Value & "</Parameter>" & _
+                                        "<Parameter>" & CompleteQtyTextBox.Text & "</Parameter>" & _
+                                        "<Parameter>" & QtyScrapped & "</Parameter>" & _
+                                        "<Parameter>" & EmpNumDropDown.SelectedValue & "</Parameter>" & _
+                                        "<Parameter ByRef='Y'>" & DBNull.Value & "</Parameter>" & _
+                                        "<Parameter>" & Session("UserName").ToString & "</Parameter>" & _
+                                        "<Parameter>" & UserDropDown.SelectedValue & "</Parameter></Parameters>"
+                Dim res As Object
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                res = oWS.CallMethod(Session("Token").ToString, "PPCC_JobTrans", "PPCC_WSLoadBackflushSp", Parms)
+
+                Dim ds As New Data.DataSet
+                Dim Filter As String = "UserID='" & Session("UserName").ToString & "' And UserEmpNum= '" & UserDropDown.SelectedValue & "' And Job= '" & JobTextBox.Text & "' And Suffix= " & SuffixTextBox.Text & " And QtyRequired > 0 And OperNum=" & OperationDropDown.SelectedValue
+                Dim PropertyList As String = "Selected, OperNum, TransSeq, Lot, QtyRequired, UM, Item, Description, QtyOnHand, QtyNeeded, Sequence, Whse, Loc, Wc, EmpNum, TransClass, UbTagID, UbIssueQty"
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_BackflushLots", PropertyList, Filter, "OperNum, Sequence, Lot", "", 0)
+
+                BFGridView.DataSource = ds.Tables(0)
+                BFGridView.DataBind()
+
+                dt_match = New Data.DataTable
+                With dt_match.Columns
+                    .Add("Matched", Type.GetType("System.Int32"))
+                    .Add("OperNum", Type.GetType("System.Int32"))
+                    .Add("Job", Type.GetType("System.String"))
+                    .Add("Sequence", Type.GetType("System.Int32"))
+                    .Add("TargetQty", Type.GetType("System.Decimal"))
+                    .Add("SelectedQty", Type.GetType("System.Decimal"))
+                    .Add("TagID", Type.GetType("System.String"))
+                    .Add("IssueQty", Type.GetType("System.Decimal"))
+                End With
+            End If
+
+            Dim sJob As String = JobTextBox.Text
+            Dim sOperNum As String = "'"
+            Dim sSeq As String = ""
+            Dim sNeeded As String = ""
+            Dim sRequired As String = ""
+            Dim sSelect As String = ""
+            Dim sLot As String = ""
+            Dim sWhse As String = ""
+            Dim sLoc As String = ""
+            Dim sItem As String = ""
+            Dim bClearSum As Boolean = False
+
+            Call RefreshBflushLotsSum("", "", 0, 0, 0, 0, bClearSum, dt_match)
+
+            For Each Row As GridViewRow In BFGridView.Rows
+                Dim OperNumLabel As Label = DirectCast(Row.FindControl("OperationLabel"), Label)
+                Dim SeqLabel As Label = DirectCast(Row.FindControl("SeqLabel"), Label)
+                Dim NeededLabel As Label = DirectCast(Row.FindControl("QtyNeededLabel"), Label)
+                Dim RequiredTextBox As TextBox = DirectCast(Row.FindControl("QtyRequiredTextBox"), TextBox)
+                Dim LotLabel As Label = DirectCast(Row.FindControl("LotLabel"), Label)
+                Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+                Dim WhseLabel As Label = DirectCast(Row.FindControl("WhseLabel"), Label)
+                Dim LocationLabel As Label = DirectCast(Row.FindControl("LocationLabel"), Label)
+                Dim ItemLabel As Label = DirectCast(Row.FindControl("ItemLabel"), Label)
+
+                sOperNum = OperNumLabel.Text
+                sSeq = SeqLabel.Text
+                sNeeded = NeededLabel.Text
+                sRequired = RequiredTextBox.Text
+                sLot = LotLabel.Text
+                sSelect = IIf(SelectCheckBox.Checked, "1", "0")
+                sWhse = WhseLabel.Text
+                sLoc = LocationLabel.Text
+                sItem = ItemLabel.Text
+
+                If sSelect = "1" Then
+                    Dim Parms As String = "<Parameters><Parameter>" & sWhse & "</Parameter>" & _
+                                   "<Parameter>" & sLot & "</Parameter>" & _
+                                   "<Parameter>" & "1" & "</Parameter>" & _
+                                   "<Parameter>" & sItem & "</Parameter>" & _
+                                   "<Parameter>" & sLoc & "</Parameter>" & _
+                                   "<Parameter ByRef='Y'>" & DBNull.Value & "</Parameter></Parameters>"
+
+                    Dim res As Object
+                    oWS = New SLWebServices.DOWebServiceSoapClient
+                    res = oWS.CallMethod(Session("Token").ToString, "SLJobtMats", "BflushLotValSp", Parms)
+
+                    If res = "0" Then
+                        Dim doc As XmlDocument = New XmlDocument()
+                        doc.LoadXml(Parms)
+                        Dim i As Integer = 1
+                        For Each node As XmlNode In doc.DocumentElement
+                            If i = 6 Then
+                                If Trim(node.InnerText) <> "" Then
+                                    PassNotifyPanel.Visible = True
+                                    PassText.Text &= node.InnerText & "<br />"
+                                End If
+                            End If
+                            i += 1
+                        Next
+                    Else
+                        '--Error
+                        Dim doc As XmlDocument = New XmlDocument()
+                        doc.LoadXml(Parms)
+                        Dim i As Integer = 1
+                        For Each node As XmlNode In doc.DocumentElement
+                            If i = 6 Then
+                                If Trim(node.InnerText) <> "" Then
+                                    NotPassNotifyPanel.Visible = True
+                                    NotPassText.Text &= node.InnerText & "<br />"
+                                End If
+                            End If
+                            i += 1
+                        Next
+                    End If
+                End If
+
+                Call RefreshBflushLotsSum(sJob, sOperNum, sSeq, sNeeded, sRequired, sSelect, bClearSum, dt_match)
+                bClearSum = False
+            Next
+
+            MatchedGridView.DataSource = dt_match
+            MatchedGridView.DataBind()
+
+            RMTagTextBox.Focus()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub RefreshBflushLotsSum(ByVal sJob As String, ByVal sOperNum As String, ByVal iSeq As Integer, ByVal dNeeded As Decimal, _
+                             ByVal dRequired As Decimal, ByVal iSelect As Integer, ByVal bClearSum As Boolean, ByRef dt_match As Data.DataTable)
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim sSumJob As String = ""
+            Dim sSumOperNum As String = ""
+            Dim iSumSeq As Integer = 0
+            Dim dSumNeeded As Decimal = 0D
+            Dim dSumRequired As Decimal = 0D
+            Dim bExists As Boolean
+            Dim iRowCount As Integer = 0
+
+            bExists = False
+            iRowCount = dt_match.Rows.Count
+            If sJob = "" Then
+                For i As Integer = 0 To iRowCount - 1
+                    dt_match.Rows(i)("Matched") = "0"
+                    dt_match.Rows(i)("SelectedQty") = "0"
+                Next
+            End If
+
+            If sJob = "" Then
+                Exit Sub
+            End If
+
+            For i As Integer = 0 To iRowCount - 1
+                sSumJob = dt_match.Rows(i)("Job")
+                If sSumJob = "" Then
+                    Exit Sub
+                End If
+
+                sSumOperNum = dt_match.Rows(i)("OperNum")
+                iSumSeq = CInt(dt_match.Rows(i)("Sequence"))
+                dSumNeeded = CDec(dt_match.Rows(i)("TargetQty"))
+
+                If dt_match.Rows(i)("SelectedQty").ToString = "" Then
+                    dSumRequired = 0
+                Else
+                    dSumRequired = CDec(dt_match.Rows(i)("SelectedQty"))
+                End If
+
+                If sSumJob = sJob And sSumOperNum = sOperNum And iSumSeq = iSeq Then
+                    If iSelect = 1 Then
+                        dSumRequired = dSumRequired + dRequired
+                        dt_match.Rows(i)("SelectedQty") = dSumRequired
+                    End If
+
+                    If dSumNeeded = dSumRequired Then
+                        dt_match.Rows(i)("Matched") = "1"
+                    Else
+                        dt_match.Rows(i)("Matched") = "0"
+                    End If
+                    bExists = True
+                    Exit For
+                End If
+            Next
+
+            If Not bExists Then
+                Dim row As Data.DataRow
+                row = dt_match.NewRow
+                row("Matched") = "0"
+                row("Job") = sJob
+                row("OperNum") = sOperNum
+                row("Sequence") = CStr(iSeq)
+                row("TargetQty") = CStr(dNeeded)
+                row("SelectedQty") = "0"
+                If iSelect = 1 Then
+                    row("SelectedQty") = CStr(dRequired)
+                    If dNeeded = dRequired Then
+                        row("Matched") = "1"
+                    Else
+                        row("Matched") = "0"
+                    End If
+                End If
+
+                dt_match.Rows.Add(row)
+            End If
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub GetPreassignedLot()
+        'Try
+        NotPassNotifyPanel.Visible = False
+        Dim Filter As String
+        Dim ds As Data.DataSet
+
+        'Pre-assigned lot
+        Filter = "RefNum= '" & JobTextBox.Text & "'"
+
+        ds = New Data.DataSet
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLPreassignedLots", "Lot", Filter, "Lot", "", 0)
+
+        LotDropDown.Items.Clear()
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            For Each dRow As Data.DataRow In ds.Tables(0).Rows
+                LotDropDown.Items.Add(New ListItem(dRow("Lot"), dRow("Lot")))
+            Next
+        End If
+
+        'Item Lot Locations
+        Filter = "Item='" & ItemTextBox.Text & "' And Whse='" & WhseTextBox.Text & "' And Loc='" & MoveToLocationDropDown.SelectedValue & "'"
+        ds = New Data.DataSet
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLLotLocs", "Lot", Filter, "Lot", "", 0)
+        If ds.Tables(0).Rows.Count > 0 Then
+            For Each dRow As Data.DataRow In ds.Tables(0).Rows
+                Dim ListItem As ListItem = LotDropDown.Items.FindByValue(dRow("Lot").ToString)
+                If ListItem Is Nothing Then
+                    LotDropDown.Items.Add(New ListItem(dRow("Lot"), dRow("Lot")))
+                End If
+            Next
+        End If
+
+        If LotDropDown.Items.Count = 0 Then
+            LotDropDown.Enabled = False
+        Else
+            LotDropDown.Enabled = True
+        End If
+        'Catch ex As Exception
+        '    NotPassNotifyPanel.Visible = True
+        '    NotPassText.Text = ex.Message
+        'End Try
+    End Sub
+
+    Sub BindOperationAndWc(ByVal BarCodeOper As String)
+        Try
+            NotPassNotifyPanel.Visible = False
+            OperationDropDown.Items.Clear()
+            OperWcs = New Data.DataSet
+
+            Dim Filter As String = "Job='" & JobTextBox.Text & "' And Suffix=" & SuffixTextBox.Text
+            oWS = New SLWebServices.DOWebServiceSoapClient
+
+            OperWcs = oWS.LoadDataSet(Session("Token").ToString, "SLJobRoutes", "OperNum, Wc, WcDescription", Filter, "OperNum", "", 0)
+            For Each dRow As Data.DataRow In OperWcs.Tables(0).Rows
+                OperationDropDown.Items.Add(New ListItem(dRow("OperNum") _
+                                                         & " -- " & dRow("Wc"), dRow("OperNum")))
+            Next
+
+            Dim ListItem As ListItem = OperationDropDown.Items.FindByValue(BarCodeOper)
+            If ListItem IsNot Nothing Then
+                OperationDropDown.SelectedValue = BarCodeOper
+            End If
+
+            Call SetNextOperAndNextWc(False, BarCodeOper)
+            Call ShowTagTables()
+
+
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub ShowTagTables()
+        'Enable or Disable Print and Adjust Qty.
+        Dim Filter As String = ""
+        Dim ds As New Data.DataSet
+        Filter = "Wc='" & WcTextBox.Text & "'"
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLWcs", "wcUf_Wc_PrintOption", Filter, "Wc", "", 0)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            If ds.Tables(0).Rows(0)("wcUf_Wc_PrintOption").ToString = "R" Then
+                TagGridView.Visible = True
+                Call BindTag()
+            Else
+                TagGridView.Visible = False
+            End If
+        Else
+            TagGridView.Visible = False
+        End If
+    End Sub
+
+    Sub SetNextOperAndNextWc(Optional ByVal SelfSelected As Boolean = False, Optional ByVal DefaultOper As String = "10")
+        Try
+            Dim Filter As String = ""
+            Dim ds As New Data.DataSet
+
+            NotPassNotifyPanel.Visible = False
+
+            NextOperDropDown.Items.Clear()
+            MoveToLocationDropDown.Items.Clear()
+
+            For Each dRow As Data.DataRow In OperWcs.Tables(0).Rows
+                NextOperDropDown.Items.Add(New ListItem(dRow("OperNum") _
+                                                         & " -- " & dRow("Wc"), dRow("OperNum")))
+            Next
+
+            If OperationDropDown.Items.Count > 0 And Not SelfSelected Then
+                Dim ListItem As ListItem = OperationDropDown.Items.FindByValue(DefaultOper)
+                If ListItem IsNot Nothing Then
+                    OperationDropDown.SelectedValue = DefaultOper
+                    'OperationDropDown.Enabled = False
+                End If
+            End If
+
+            If OperationDropDown.Items.Count > 0 Then
+                WcTextBox.Text = OperWcs.Tables(0).Rows(OperationDropDown.SelectedIndex)("Wc").ToString
+                WcDescriptionTextBox.Text = OperWcs.Tables(0).Rows(OperationDropDown.SelectedIndex)("WcDescription").ToString
+
+                '1. Load Resource By Work Center
+                Filter = "wc='" & WcTextBox.Text & "'"
+                MachineDropDown.Items.Clear()
+                ds = New Data.DataSet
+                oWS = New SLWebServices.DOWebServiceSoapClient
+
+                ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_RGRPMBR000s", "RESID, res_DESCR", Filter, "RESID", "", 0)
+                For Each dRow As Data.DataRow In ds.Tables(0).Rows
+                    MachineDropDown.Items.Add(New ListItem(dRow("RESID") _
+                                                             & " -- " & dRow("res_DESCR"), dRow("RESID")))
+                Next
+                MachineDropDown.Items.Insert(0, New ListItem("", ""))
+
+            End If
+
+            '2. Load Employee By Work Center
+            EmpNumDropDown.Items.Clear()
+            HeadDropDown.Items.Clear()
+            Filter = "Wc='" & WcTextBox.Text & "'"
+            Dim PropertyList As String = "EmpNum, Name"
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_EmployeeWcs", PropertyList, Filter, "EmpNum", "", 0)
+            For Each dRow As Data.DataRow In ds.Tables(0).Rows
+                EmpNumDropDown.Items.Add(New ListItem(dRow("EmpNum") _
+                                                         & " -- " & dRow("Name"), dRow("EmpNum")))
+                HeadDropDown.Items.Add(New ListItem(dRow("EmpNum") _
+                                                        & " -- " & dRow("Name"), dRow("EmpNum")))
+            Next
+
+            Dim ListEmployee As ListItem = EmpNumDropDown.Items.FindByValue(Session("Employee").ToString)
+            If ListEmployee IsNot Nothing Then
+                EmpNumDropDown.SelectedValue = Session("Employee").ToString
+            End If
+            HeadDropDown.Items.Insert(0, New ListItem("", ""))
+            HeadDropDown.SelectedIndex = 0
+
+            'Next Oper. and Wc.
+            If OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 Then 'Last Operation
+                NextOperDropDown.Items.Insert(0, New ListItem(String.Empty, String.Empty))
+                NextOperDropDown.SelectedIndex = 0
+                NextOperDropDown.Enabled = False
+
+                NextWcTextBox.Text = ""
+                NextWcDescription.Text = ""
+
+                MoveToLocationDropDown.Enabled = False
+                MoveToLocationDescTextBox.Text = LocationDescription
+
+                'List Item Stockroom Location
+                MoveToLocation = New Data.DataSet
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                Filter = "ItmItem='" & ItemTextBox.Text & "' And Whse='" & WhseTextBox.Text & "' And Rank= 1"
+                PropertyList = "ItmItem, ItmUM, Loc, LocDescription"
+                MoveToLocation = oWS.LoadDataSet(Session("Token").ToString, "SLItemLocs", PropertyList, Filter, "Loc", "", 0)
+                If MoveToLocation.Tables(0).Rows.Count > 0 Then
+                    For Each dRow As Data.DataRow In MoveToLocation.Tables(0).Rows
+                        MoveToLocationDropDown.Items.Add(New ListItem(dRow("Loc"), dRow("Loc")))
+                    Next
+                End If
+
+                'Call GetItemInfo()
+                MoveToLocationDropDown.SelectedIndex = MoveToLocationDropDown.Items.IndexOf(MoveToLocationDropDown.Items.FindByValue(Location))
+                'Dim ListItem As ListItem = MoveToLocationDropDown.Items.FindByValue(Location)
+                'If ListItem IsNot Nothing Then
+                '    MoveToLocationDropDown.SelectedValue = Location
+                'End If
+
+                Call GetPreassignedLot()
+            Else
+                'NextOperDropDown.Enabled = True
+                NextOperDropDown.SelectedIndex = OperationDropDown.SelectedIndex + 1
+
+                NextWcTextBox.Text = OperWcs.Tables(0).Rows(NextOperDropDown.SelectedIndex)("Wc").ToString
+                NextWcDescription.Text = OperWcs.Tables(0).Rows(NextOperDropDown.SelectedIndex)("WcDescription").ToString
+
+                MoveToLocationDropDown.Enabled = False
+                MoveToLocationDescTextBox.Text = ""
+
+                LotDropDown.Items.Clear()
+            End If
+
+
+            'Get Moved Qty. From Prev. Operation
+            Dim PrevOper As Object = Nothing
+
+            Filter = "Job= '" & JobTextBox.Text & "' And Suffix =" & SuffixTextBox.Text & " And OperNum <=" & OperationDropDown.SelectedValue
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobRoutes", "OperNum", Filter, "OperNum Desc", "", 0)
+            If ds.Tables(0).Rows.Count > 0 Then
+                PrevOper = ds.Tables(0).Rows(0)("OperNum")
+            Else
+                PrevOper = OperationDropDown.SelectedValue
+            End If
+
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Filter = "Job= '" & JobTextBox.Text & "' And Suffix =" & SuffixTextBox.Text & " And OperNum=" & PrevOper.ToString
+            Dim QtyMove As Double = 0
+            Dim QtyReceive As Double = 0
+            Dim QtyScrapped As Double = 0
+            Dim QtyComplete As Double = 0
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobRoutes", "QtyMoved, QtyReceived, QtyScrapped, QtyComplete", Filter, "", "", 0)
+            If ds.Tables(0).Rows.Count > 0 Then
+                QtyMove = ds.Tables(0).Rows(0)("QtyMoved")
+                QtyReceive = ds.Tables(0).Rows(0)("QtyReceived")
+                QtyScrapped = ds.Tables(0).Rows(0)("QtyScrapped")
+                QtyComplete = ds.Tables(0).Rows(0)("QtyComplete")
+            End If
+
+
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Dim JobTransQty As Double = 0
+            Filter = "Job= '" & JobTextBox.Text & "' And Suffix =" & SuffixTextBox.Text & " And OperNum=" & OperationDropDown.SelectedValue & " And TransNum  <> " & IIf(Trim(TransNumTextBox.Text) = "", "0", TransNumTextBox.Text)
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobTrans", "QtyComplete, QtyScrapped", Filter, "", "", 0)
+            If ds.Tables(0).Rows.Count > 0 Then
+                For Each DRow As Data.DataRow In ds.Tables(0).Rows
+                    JobTransQty += Convert.ToDouble(DRow("QtyComplete"))
+                    JobTransQty += Convert.ToDouble(DRow("QtyScrapped"))
+                Next
+            End If
+
+            'If OperationDropDown.SelectedIndex = 0 Then
+            '    CompleteQtyTextBox.Text = CLng(QtyReceive - QtyMove - QtyScrapped)
+            'Else
+            '    CompleteQtyTextBox.Text = CLng(QtyMove - JobTransQty)
+            'End If
+
+            'Modify for CR FIFO
+
+            Dim QtyRemain As Double = QtyReceive - (QtyScrapped + QtyComplete)
+            If QtyRemain < 0 Then
+                QtyRemain = 0
+            End If
+
+            CompleteQtyTextBox.Text = CLng(QtyRemain)
+
+            Dim _QtyMove As Decimal
+            _QtyMove = CDec(CompleteQtyTextBox.Text)
+            MoveQtyTextBox.Text = CDec(_QtyMove)
+
+            'MsgBox(MoveQtyTextBox.Text)
+
+
+            If ValidJobRouteAndJobMatlQtyComplete(False) Then
+                Dim dt_scrapped As New Data.DataTable
+                Dim total_scrapped As Object
+                dt_scrapped = ScrappedGridView.DataSource
+
+                If dt_scrapped.Rows.Count > 0 Then
+                    total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+                    If IsDBNull(total_scrapped) Then
+                        total_scrapped = "0.000"
+                    End If
+                Else
+                    total_scrapped = "0.000"
+                End If
+
+                Call GetBackflushLots(total_scrapped, False)
+            End If
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub OperationDropDown_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles OperationDropDown.SelectedIndexChanged
+        Try
+            NotPassNotifyPanel.Visible = False
+            BFGridView.DataSource = Nothing
+            BFGridView.DataBind()
+
+            MatchedGridView.DataSource = Nothing
+            MatchedGridView.DataBind()
+
+            Call GetItemInfo()
+            Call SetNextOperAndNextWc(True)
+            'Call GetItemInfo()
+            Call ShowTagTables()
+
+            'Call DisPlayQtyFraction()
+
+            If OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 Then
+
+                Dim FractionType As String = ""
+                FractionType = GetItemFracTypeByItem(ItemTextBox.Text)
+
+                If FractionType = "M" Or FractionType = "I" Then
+                    Call displayGridFraction()
+                Else
+                    txtFractionLoc.Text = String.Empty
+                End If
+
+                'Call displayGridFraction()
+            End If
+
+            ShiftDropDown.SelectedIndex = 0
+            ProductionShiftDropDown.SelectedIndex = 0
+            MachineDropDown.SelectedIndex = 0
+
+
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Sub BindEmptyGrid()
+        Try
+            NotPassNotifyPanel.Visible = False
+            'Scrap Reason
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Dim Filter As String = "TransNum = " & IIf(TransNumTextBox.Text = "", 0, TransNumTextBox.Text) & " AND Job = '" & JobTextBox.Text & "' AND Suffix = " & SuffixTextBox.Text & " AND Posted = 0"
+            'Dim Filter As String = "TransNum= " & IIf(TransNumTextBox.Text = "", 0, TransNumTextBox.Text)
+            Dim PropList As String = "ReasonCode, ReasonDescription, Qty, UM, QtyConv, BaseUM, RowPointer"
+            Dim ds As New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_ScrappedTrans", PropList, Filter, "", "", 0)
+
+            ScrappedGridView.DataSource = ds.Tables(0)
+            ScrappedGridView.DataBind()
+
+            'Down Time Reason
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            PropList = "ReasonCode, ReasonDescription, DerStartTimeMin, DerEndTimeMin, AHrs, DownTimeType, RowPointer"
+            ds = New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_DownTimeTrans", PropList, Filter, "", "", 0)
+
+            DTGridView.DataSource = ds.Tables(0)
+            DTGridView.DataBind()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Protected Sub EmpNumDropDown_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles EmpNumDropDown.SelectedIndexChanged
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim Parms As String = "<Parameters><Parameter>" & EmpNumDropDown.SelectedValue & "</Parameter>" & _
+                               "<Parameter>" & PayTypeDropDown.SelectedValue & "</Parameter>" & _
+                               "<Parameter>" & TransDateTextBox.Text & "</Parameter>" & _
+                               "<Parameter ByRef='Y'>" & "" & "</Parameter>" & _
+                               "<Parameter ByRef='Y'>" & "" & "</Parameter>" & _
+                               "<Parameter ByRef='Y'>" & "" & "</Parameter>" & _
+                               "<Parameter ByRef='Y'>" & "" & "</Parameter>" & _
+                               "<Parameter ByRef='Y'>" & "" & "</Parameter>" & _
+                               "<Parameter ByRef='Y'>" & "" & "</Parameter></Parameters>"
+            'Output Sequence
+            '4=Shift
+            '5=Employee Name
+            '6=Pay Rate
+            '7=Job Rate
+            '8=System Prompt Message
+            '9=System Prompt Button
+
+            'Dim Deflautddl As Integer = 0
+
+            'Deflautddl = EmpNumDropDown.SelectedIndex
+
+
+            Dim res As Object
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            res = oWS.CallMethod(Session("Token").ToString, "SLJobTrans", "JobtranEmpValidSp", Parms)
+
+            If res = "0" Then
+                Dim doc As XmlDocument = New XmlDocument()
+                doc.LoadXml(Parms)
+                Dim i As Integer = 1
+                For Each node As XmlNode In doc.DocumentElement
+                    If i = 4 Then
+                        ShiftDropDown.SelectedValue = IIf(node.InnerText = "A", "", node.InnerText)
+                    ElseIf i = 6 Then
+                        PrRateTextBox.Text = node.InnerText
+                    ElseIf i = 7 Then
+                        JobRateTextBox.Text = node.InnerText
+                    End If
+                    i += 1
+                Next
+            End If
+
+            Call GetItemInfo()
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub ScrappedGridView_RowCommand(sender As Object, e As System.Web.UI.WebControls.GridViewCommandEventArgs) Handles ScrappedGridView.RowCommand
+        Try
+            NotPassNotifyPanel.Visible = False
+            If e.CommandName = "DeleteScrap" Then
+                Dim oReturn As Object
+                Dim RowPointer As String = e.CommandArgument.ToString
+                Dim Parms As String = "<Parameters><Parameter>" & RowPointer & "</Parameter></Parameters>"
+
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                oReturn = oWS.CallMethod(Session("Token").ToString, "PPCC_ScrappedTrans", "PPCC_WSDeleteScrapSp", Parms)
+
+                Call RebindScrap()
+
+                Dim dt_scrapped As New Data.DataTable
+                Dim total_scrapped As Object
+                dt_scrapped = ScrappedGridView.DataSource
+
+                If dt_scrapped.Rows.Count > 0 Then
+                    total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+                    If IsDBNull(total_scrapped) Then
+                        total_scrapped = "0.000"
+                    End If
+                Else
+                    total_scrapped = "0.000"
+                End If
+                
+                Call GetBackflushLots(total_scrapped, False)
+            End If
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub AddEmptyScrapButton_Click(sender As Object, e As System.EventArgs) Handles AddEmptyScrapButton.Click
+        Try
+
+            Label2.Text = Val(Label2.Text) + 1
+
+            'Session.Add("CheckValue", Label2.Text)
+            'MsgBox(Session("CheckValue"))
+
+            NotPassNotifyPanel.Visible = False
+            If Convert.ToDouble(EmptyQtyConvTextBox.Text) <> 0 Then
+                Call AddScrapRow(EmptyReasonDropDown.SelectedValue, _
+                                    EmptyQtyConvTextBox.Text, _
+                                    EmptyUMDropDown.SelectedValue, _
+                                    EmptyQtyTextBox.Text, _
+                                    EmptyBasedUMTextBox.Text, _
+                                    JobTextBox.Text, _
+                                    SuffixTextBox.Text)
+            End If
+
+            Dim dt_scrapped As New Data.DataTable
+            Dim total_scrapped As Object
+            dt_scrapped = ScrappedGridView.DataSource
+
+            If dt_scrapped.Rows.Count > 0 Then
+                total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+                If IsDBNull(total_scrapped) Then
+                    total_scrapped = "0.000"
+                End If
+            Else
+                total_scrapped = "0.000"
+            End If
+
+            Call GetBackflushLots(total_scrapped, False)
+
+            EmptyReasonDropDown.SelectedIndex = 0
+            EmptyQtyTextBox.Text = "0.000"
+            EmptyQtyConvTextBox.Text = "0.000"
+            'EmptyReasonTextBox.Text = ""
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub AddScrapRow(ByVal ReasonCode As String, _
+                    ByVal QtyConv As Decimal, _
+                    ByVal UM As String, _
+                    ByVal Qty As Decimal, _
+                    ByVal BaseUM As String, _
+                    ByVal Job As String, _
+                    ByVal Suffix As String)
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim oReturn As Object
+            Dim Parms As String = "<Parameters><Parameter>" & IIf(Trim(TransNumTextBox.Text) = "", "0", TransNumTextBox.Text) & "</Parameter>" & _
+                                    "<Parameter>" & ReasonCode & "</Parameter>" & _
+                                    "<Parameter>" & Qty & "</Parameter>" & _
+                                    "<Parameter>" & UM & "</Parameter>" & _
+                                    "<Parameter>" & QtyConv & "</Parameter>" & _
+                                    "<Parameter>" & BaseUM & "</Parameter>" & _
+                                    "<Parameter>" & Job & "</Parameter>" & _
+                                    "<Parameter>" & Suffix & "</Parameter></Parameters>"
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            oReturn = oWS.CallMethod(Session("Token").ToString, "PPCC_ScrappedTrans", "PPCC_WSInsertScrapSp", Parms)
+
+            Call RebindScrap()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub AddDownTime(ByVal ReasonCode As String, _
+                    ByVal StartTime As String, _
+                    ByVal EndTime As String, _
+                    ByVal TotalHrs As String, _
+                    ByVal Job As String, _
+                    ByVal Suffix As String)
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim oReturn As Object
+            Dim Parms As String = "<Parameters><Parameter>" & IIf(Trim(TransNumTextBox.Text) = "", "0", TransNumTextBox.Text) & "</Parameter>" & _
+                                    "<Parameter>" & ReasonCode & "</Parameter>" & _
+                                    "<Parameter>" & StartTime & "</Parameter>" & _
+                                    "<Parameter>" & EndTime & "</Parameter>" & _
+                                    "<Parameter>" & Convert.ToString(Convert.ToDouble(TotalHrs) / 60.0) & "</Parameter>" & _
+                                    "<Parameter>" & Job & "</Parameter>" & _
+                                    "<Parameter>" & Suffix & "</Parameter></Parameters>"
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            oReturn = oWS.CallMethod(Session("Token").ToString, "PPCC_DownTimeTrans", "PPCC_WSInsertDtSp", Parms)
+
+            Call RebindDownTime()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub RebindScrap()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim Filter As String = "Job= '" & JobTextBox.Text & "' And Suffix=" & SuffixTextBox.Text & " And Posted = 0"
+            Dim PropList As String = "ReasonCode, ReasonDescription, QtyConv, UM, Qty, BaseUM, RowPointer"
+            Dim ds As New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_ScrappedTrans", PropList, Filter, "ReasonCode", "", 0)
+
+            ScrappedGridView.DataSource = ds.Tables(0)
+            ScrappedGridView.DataBind()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub RebindDownTime()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim Filter As String = "Job= '" & JobTextBox.Text & "' And Suffix=" & SuffixTextBox.Text & " And Posted = 0"
+            Dim PropList As String = "ReasonCode, ReasonDescription, DerStartTimeMin, DerEndTimeMin, AHrs, DownTimeType, RowPointer"
+            Dim ds As New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_DownTimeTrans", PropList, Filter, "ReasonCode", "", 0)
+
+            DTGridView.DataSource = ds.Tables(0)
+            DTGridView.DataBind()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    'Protected Sub EmptyReasonDropDown_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles EmptyReasonDropDown.SelectedIndexChanged
+    '    Try
+    '        NotPassNotifyPanel.Visible = False
+    '        Dim ds As New Data.DataSet
+    '        Dim Filter As String = "ReasonCode='" & EmptyReasonDropDown.SelectedValue & "' And ReasonClass='MFG SCRAP'"
+    '        oWS = New SLWebServices.DOWebServiceSoapClient
+    '        ds = oWS.LoadDataSet(Session("Token").ToString, "SLReasons", "ReasonCode, Description", Filter, "ReasonCode", "", 0)
+
+    '        If ds.Tables(0).Rows.Count > 0 Then
+    '            EmptyReasonTextBox.Text = ds.Tables(0).Rows(0)("Description").ToString
+    '        End If
+
+    '        Call RebindScrap()
+    '    Catch ex As Exception
+    '        NotPassNotifyPanel.Visible = True
+    '        NotPassText.Text = ex.Message
+    '    End Try
+    'End Sub
+
+    Function QtyReceived() As Decimal
+
+        Dim ds As New Data.DataSet
+        Dim qty_Received As Decimal = 0
+        Dim Filter As String = "Job='" & JobTextBox.Text & "' And Suffix=" & SuffixTextBox.Text
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobRoutes", "QtyReceived", Filter, "OperNum desc", "", 0)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            qty_Received = ds.Tables(0).Rows(0)("QtyReceived").ToString
+        Else
+            qty_Received = -1
+        End If
+
+        Return qty_Received
+
+    End Function
+
+    Protected Sub SaveButton_Click(sender As Object, e As System.EventArgs) Handles SaveButton.Click
+        Try
+
+            Dim FractionType As String = ""
+            FractionType = GetItemFracTypeByItem(ItemTextBox.Text)
+
+            If FractionType = "M" Or FractionType = "I" Then
+
+
+                If (OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And txtFractionLoc.Text <> "") Or _
+                (OperationDropDown.SelectedIndex < OperationDropDown.Items.Count - 1) Then
+
+                    Dim QtyComplete As String
+                    Dim QtyFraction As String
+                    Dim total_tag As String
+                    Dim Qty As Integer
+                    Dim QtySmallTag As Integer
+                    Dim QtyBigTag As Integer
+
+                    QtyComplete = CompleteQtyTextBox.Text
+                    QtyFraction = IIf(txtFraction.Text = String.Empty, "0", txtFraction.Text)
+                    Qty = CInt(QtyComplete) + CInt(QtyFraction)
+                    total_tag = IIf(TotalTagQtyTextBox.Text = String.Empty, "0", TotalTagQtyTextBox.Text)
+                    QtySmallTag = IIf(txtQtySmallTag.Text = String.Empty, "0", txtQtySmallTag.Text)
+                    QtyBigTag = IIf(txtQtyBigTag.Text = String.Empty, "0", txtQtyBigTag.Text)
+
+                    If QtyComplete > 0 Then
+
+                        If (Qty = CInt(total_tag) And OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1) Or _
+                       (OperationDropDown.SelectedIndex < OperationDropDown.Items.Count - 1) Then
+
+                            If CInt(QtyBigTag) = CInt(QtySmallTag) Then
+
+                                If ValidJobRouteAndJobMatlQtyComplete(True) Then
+
+                                    Dim Received As Decimal
+                                    Received = CDec(QtyReceived())
+                                    'MsgBox(Received)
+
+                                    If OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And Received > 0 Then
+                                        oWS = New SLWebServices.DOWebServiceSoapClient
+                                        Dim ds As New Data.DataSet
+                                        Dim BoxTag As Integer = 1
+                                        Dim BagTag As Integer = 1
+                                        Dim TagType As String = ""
+
+                                        'Dim ItemType As String = ""
+                                        'ItemType = Left(ItemTextBox.Text, 2)
+                                        'lblTagType.Text = ItemType
+
+                                        'If lblTagType.Text = "TF" Then
+                                        '    TagType = "SM"
+                                        'ElseIf lblTagType.Text = "FG" Then
+                                        '    TagType = "FG"
+                                        'End If
+
+
+                                        Dim Parms As String = "<Parameters>"
+                                        Parms &= "<Parameter>" & SessionID.ToString & "</Parameter>"
+                                        Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                                        Parms &= "<Parameter>" & IIf(Left(ItemTextBox.Text, 2) = "FG", "FG", "SM") & "</Parameter>"
+                                        Parms &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                                        Parms &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                                        Parms &= "<Parameter>" & "0000" & "</Parameter>"
+                                        Parms &= "<Parameter>" & "9999" & "</Parameter>"
+                                        Parms &= "<Parameter>" & "" & "</Parameter>"
+                                        Parms &= "<Parameter>" & "" & "</Parameter>"
+                                        Parms &= "<Parameter>" & "" & "</Parameter>"
+                                        Parms &= "<Parameter>" & "" & "</Parameter>"
+                                        Parms &= "<Parameter>" & BarCodeTextBox.Text & "</Parameter>"
+                                        Parms &= "<Parameter>" & BarCodeTextBox.Text & "</Parameter>"
+                                        Parms &= "<Parameter>" & BoxTag & "</Parameter>"
+                                        Parms &= "<Parameter>" & BagTag & "</Parameter>"
+                                        Parms &= "</Parameters>"
+
+                                        'MsgBox(Parms)
+
+                                        oWS.CallMethod(Session("Token").ToString, "PPCC_TempTags", "PPCC_PreviewTagSp", Parms)
+
+
+                                        ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_TempTags", "TagSize, TagID, TagQty, Item, Lot, RefNum, ItemDescription, PrintCount, Whse, Loc", "UserID='" & Session("UserName").ToString & "' And TagType='" & IIf(Left(ItemTextBox.Text, 2) = "FG", "FG", "SM") & "'", "TagID", "", 0)
+                                        'MsgBox(ds.Tables(0).Rows.Count)
+
+                                        'For i As Integer = 0 To ds.Tables(0).Rows.Count - 1
+                                        '    Dim Settings As New BarcodeSettings()
+                                        '    BarcodeSettings.ApplyKey("GAL1B-04IQ0-V84NH-U4689-08YM3")
+                                        '    Dim Data As String = CType(ds.Tables(0).Rows(i)("TagID"), String)
+                                        '    Dim Type As String = "Code128"
+
+                                        '    Settings.Data2D = Data
+                                        '    Settings.Data = CType(ds.Tables(0).Rows(i)("TagID"), String)
+
+                                        '    Type = "DataMatrix"
+                                        '    Settings.Type = CType(System.Enum.Parse(GetType(BarCodeType), Type), BarCodeType)
+
+                                        '    Settings.ShowText = False
+                                        '    Settings.BottomMargin = 0
+                                        '    Settings.TopMargin = 0
+                                        '    Settings.LeftMargin = 0
+                                        '    Settings.RightMargin = 0
+                                        '    Settings.ResolutionType = ResolutionType.Printer
+                                        '    Settings.AutoResize = True
+
+                                        '    Dim Generator As New BarCodeGenerator(Settings)
+                                        '    Dim Barcode As Image = Generator.GenerateImage
+
+                                        '    Dim m As New MemoryStream()
+                                        '    Barcode.Save(m, ImageFormat.Png)
+
+                                        '    Dim binaryArray As Byte()
+                                        '    binaryArray = m.ToArray
+
+                                        '    oWS = New SLWebServices.DOWebServiceSoapClient
+                                        '    Parms = "<Parameters>"
+                                        '    Parms &= "<Parameter>" & CType(ds.Tables(0).Rows(i)("TagID"), String) & "</Parameter>"
+                                        '    Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                                        '    Parms &= "<Parameter>" & "C" & "</Parameter>"
+                                        '    Parms &= "<Parameter>" & "J" & "</Parameter>"
+                                        '    Parms &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                                        '    Parms &= "<Parameter>" & Convert.ToBase64String(binaryArray) & "</Parameter>"
+                                        '    Parms &= "<Parameter>" & 0 & "</Parameter>"
+                                        '    Parms &= "</Parameters>"
+                                        '    oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_InsertTagSp", Parms)
+
+                                        'Next
+
+                                        '------------Insert Tag--------------'
+                                        Dim parm_inserTag As String = ""
+                                        oWS = New SLWebServices.DOWebServiceSoapClient
+                                        parm_inserTag = "<Parameters>"
+                                        parm_inserTag &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                                        parm_inserTag &= "<Parameter>" & SuffixTextBox.Text & "</Parameter>"
+                                        parm_inserTag &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                                        parm_inserTag &= "<Parameter>" & "C" & "</Parameter>"
+                                        parm_inserTag &= "<Parameter>" & "J" & "</Parameter>"
+                                        parm_inserTag &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                                        parm_inserTag &= "<Parameter>" & 0 & "</Parameter>"
+                                        parm_inserTag &= "</Parameters>"
+
+                                        oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_InsertTag_2Sp", parm_inserTag)
+                                        '------------End Insert Tag --------------'
+
+
+                                        For i As Integer = 0 To ds.Tables(0).Rows.Count - 1
+                                            Dim Settings As New BarcodeSettings()
+                                            BarcodeSettings.ApplyKey("GAL1B-04IQ0-V84NH-U4689-08YM3")
+                                            Dim Data As String = CType(ds.Tables(0).Rows(i)("TagID"), String)
+                                            Dim Type As String = "Code128"
+
+                                            Settings.Data2D = Data
+                                            Settings.Data = CType(ds.Tables(0).Rows(i)("TagID"), String)
+
+                                            Type = "DataMatrix"
+                                            Settings.Type = CType(System.Enum.Parse(GetType(BarCodeType), Type), BarCodeType)
+
+                                            Settings.ShowText = False
+                                            Settings.BottomMargin = 0
+                                            Settings.TopMargin = 0
+                                            Settings.LeftMargin = 0
+                                            Settings.RightMargin = 0
+                                            Settings.ResolutionType = ResolutionType.Printer
+                                            Settings.AutoResize = True
+
+                                            Dim Generator As New BarCodeGenerator(Settings)
+                                            Dim Barcode As Image = Generator.GenerateImage
+
+                                            Dim m As New MemoryStream()
+                                            Barcode.Save(m, ImageFormat.Png)
+
+                                            Dim binaryArray As Byte()
+                                            binaryArray = m.ToArray
+
+                                            oWS = New SLWebServices.DOWebServiceSoapClient
+                                            Parms = "<Parameters>"
+                                            Parms &= "<Parameter>" & CType(ds.Tables(0).Rows(i)("TagID"), String) & "</Parameter>"
+                                            Parms &= "<Parameter>" & Convert.ToBase64String(binaryArray) & "</Parameter>"
+                                            Parms &= "</Parameters>"
+                                            oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_updateBarcodeTagSp", Parms)
+
+                                        Next
+
+                                        Call GetPreassignedLot()
+                                        Call BindTag()
+
+                                        'If TagGridView.Rows.Count > 0 Then
+
+                                        '    Dim dsTag As New Data.DataSet
+                                        '    Dim Filter As String
+                                        '    Dim QtySmallTag As Integer
+
+                                        '    QtySmallTag = GetQtySmallTag(ItemTextBox.Text)
+
+                                        '    Filter = "TagQty > 0 And TagQty < " & QtySmallTag
+
+                                        '    oWS = New SLWebServices.DOWebServiceSoapClient
+                                        '    dsTag = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagSize, TagID, TagQty, Item, Lot, RefNum, Whse, Loc", "", "TagID", "", 0)
+
+                                        '    'MsgBox(TagGridView.Rows.Count)
+                                        'End If
+
+
+                                    ElseIf OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And Received = 0 Then
+                                        NotPassNotifyPanel.Visible = True
+                                        NotPassText.Text = "ไม่ได้รายงานผล Operation ก่อนหน้า"
+
+                                    ElseIf OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And Received < 0 Then
+                                        NotPassNotifyPanel.Visible = True
+                                        NotPassText.Text = "Job " & "'" & JobTextBox.Text & "' ไม่ระบุ Oper_Num"
+
+                                    End If
+
+                                    PassNotifyPanel.Visible = False
+                                    NotPassNotifyPanel.Visible = False
+
+                                    Dim dt_scrapped As New Data.DataTable
+                                    Dim total_scrapped As Object
+                                    dt_scrapped = ScrappedGridView.DataSource
+
+                                    If dt_scrapped.Rows.Count > 0 Then
+                                        total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+                                        If IsDBNull(total_scrapped) Then
+                                            total_scrapped = "0.000"
+                                        End If
+                                    Else
+                                        total_scrapped = "0.000"
+                                    End If
+
+
+                                    Dim SelectedCount As Integer = 0
+                                    Dim RowCount As Integer = 0
+
+                                    RowCount = MatchedGridView.Rows.Count
+                                    For Each Row As GridViewRow In MatchedGridView.Rows
+                                        Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+                                        If SelectCheckBox.Checked Then
+                                            SelectedCount += 1
+                                        End If
+                                    Next
+
+                                    If SelectedCount = RowCount Then
+                                        Call SaveJobTran()
+                                    Else
+                                        Call GetBackflushLots(total_scrapped, False)
+                                        NotPassText.Text = "Target Qty must match Selected Qty."
+                                        NotPassNotifyPanel.Visible = True
+                                    End If
+
+                                End If
+
+                            Else
+
+                                NotPassText.Text = "กรุณาตรวจสอบจำนวนรวมของ Big Tag และ Small Tag!!!"
+                                NotPassNotifyPanel.Visible = True
+
+                            End If
+
+                        ElseIf (Qty <> CInt(total_tag) And OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1) Then
+
+                            NotPassText.Text = "กรุณาตรวจสอบจำนวนรวมในแท็ก!!!"
+                            NotPassNotifyPanel.Visible = True
+
+                        End If
+
+                    Else
+
+                        ' If (Qty = CInt(total_tag) And OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1) Or _
+                        '(OperationDropDown.SelectedIndex < OperationDropDown.Items.Count - 1) Then
+
+                        If ValidJobRouteAndJobMatlQtyComplete(True) Then
+
+                            Dim Received As Decimal
+                            Received = CDec(QtyReceived())
+                            'MsgBox(Received)
+
+                            If OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And Received > 0 Then
+                                oWS = New SLWebServices.DOWebServiceSoapClient
+                                Dim ds As New Data.DataSet
+                                Dim BoxTag As Integer = 1
+                                Dim BagTag As Integer = 1
+                                Dim TagType As String = ""
+
+                                'Dim ItemType As String = ""
+                                'ItemType = Left(ItemTextBox.Text, 2)
+                                'lblTagType.Text = ItemType
+
+                                'If lblTagType.Text = "TF" Then
+                                '    TagType = "SM"
+                                'ElseIf lblTagType.Text = "FG" Then
+                                '    TagType = "FG"
+                                'End If
+
+
+                                Dim Parms As String = "<Parameters>"
+                                Parms &= "<Parameter>" & SessionID.ToString & "</Parameter>"
+                                Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                                Parms &= "<Parameter>" & IIf(Left(ItemTextBox.Text, 2) = "FG", "FG", "SM") & "</Parameter>"
+                                Parms &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                                Parms &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                                Parms &= "<Parameter>" & "0000" & "</Parameter>"
+                                Parms &= "<Parameter>" & "9999" & "</Parameter>"
+                                Parms &= "<Parameter>" & "" & "</Parameter>"
+                                Parms &= "<Parameter>" & "" & "</Parameter>"
+                                Parms &= "<Parameter>" & "" & "</Parameter>"
+                                Parms &= "<Parameter>" & "" & "</Parameter>"
+                                Parms &= "<Parameter>" & BarCodeTextBox.Text & "</Parameter>"
+                                Parms &= "<Parameter>" & BarCodeTextBox.Text & "</Parameter>"
+                                Parms &= "<Parameter>" & BoxTag & "</Parameter>"
+                                Parms &= "<Parameter>" & BagTag & "</Parameter>"
+                                Parms &= "</Parameters>"
+
+                                'MsgBox(Parms)
+
+                                oWS.CallMethod(Session("Token").ToString, "PPCC_TempTags", "PPCC_PreviewTagSp", Parms)
+
+
+                                ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_TempTags", "TagSize, TagID, TagQty, Item, Lot, RefNum, ItemDescription, PrintCount, Whse, Loc", "UserID='" & Session("UserName").ToString & "' And TagType='" & IIf(Left(ItemTextBox.Text, 2) = "FG", "FG", "SM") & "'", "TagID", "", 0)
+                                'MsgBox(ds.Tables(0).Rows.Count)
+
+                                'For i As Integer = 0 To ds.Tables(0).Rows.Count - 1
+                                '    Dim Settings As New BarcodeSettings()
+                                '    BarcodeSettings.ApplyKey("GAL1B-04IQ0-V84NH-U4689-08YM3")
+                                '    Dim Data As String = CType(ds.Tables(0).Rows(i)("TagID"), String)
+                                '    Dim Type As String = "Code128"
+
+                                '    Settings.Data2D = Data
+                                '    Settings.Data = CType(ds.Tables(0).Rows(i)("TagID"), String)
+
+                                '    Type = "DataMatrix"
+                                '    Settings.Type = CType(System.Enum.Parse(GetType(BarCodeType), Type), BarCodeType)
+
+                                '    Settings.ShowText = False
+                                '    Settings.BottomMargin = 0
+                                '    Settings.TopMargin = 0
+                                '    Settings.LeftMargin = 0
+                                '    Settings.RightMargin = 0
+                                '    Settings.ResolutionType = ResolutionType.Printer
+                                '    Settings.AutoResize = True
+
+                                '    Dim Generator As New BarCodeGenerator(Settings)
+                                '    Dim Barcode As Image = Generator.GenerateImage
+
+                                '    Dim m As New MemoryStream()
+                                '    Barcode.Save(m, ImageFormat.Png)
+
+                                '    Dim binaryArray As Byte()
+                                '    binaryArray = m.ToArray
+
+                                '    oWS = New SLWebServices.DOWebServiceSoapClient
+                                '    Parms = "<Parameters>"
+                                '    Parms &= "<Parameter>" & CType(ds.Tables(0).Rows(i)("TagID"), String) & "</Parameter>"
+                                '    Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                                '    Parms &= "<Parameter>" & "C" & "</Parameter>"
+                                '    Parms &= "<Parameter>" & "J" & "</Parameter>"
+                                '    Parms &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                                '    Parms &= "<Parameter>" & Convert.ToBase64String(binaryArray) & "</Parameter>"
+                                '    Parms &= "</Parameters>"
+                                '    oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_InsertTagSp", Parms)
+
+                                'Next
+
+                                '------------Insert Tag--------------'
+                                Dim parm_inserTag As String = ""
+                                oWS = New SLWebServices.DOWebServiceSoapClient
+                                parm_inserTag = "<Parameters>"
+                                parm_inserTag &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                                parm_inserTag &= "<Parameter>" & SuffixTextBox.Text & "</Parameter>"
+                                parm_inserTag &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                                parm_inserTag &= "<Parameter>" & "C" & "</Parameter>"
+                                parm_inserTag &= "<Parameter>" & "J" & "</Parameter>"
+                                parm_inserTag &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                                parm_inserTag &= "<Parameter>" & 0 & "</Parameter>"
+                                parm_inserTag &= "</Parameters>"
+
+                                oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_InsertTag_2Sp", parm_inserTag)
+                                '------------End Insert Tag --------------'
+
+                                For i As Integer = 0 To ds.Tables(0).Rows.Count - 1
+                                    Dim Settings As New BarcodeSettings()
+                                    BarcodeSettings.ApplyKey("GAL1B-04IQ0-V84NH-U4689-08YM3")
+                                    Dim Data As String = CType(ds.Tables(0).Rows(i)("TagID"), String)
+                                    Dim Type As String = "Code128"
+
+                                    Settings.Data2D = Data
+                                    Settings.Data = CType(ds.Tables(0).Rows(i)("TagID"), String)
+
+                                    Type = "DataMatrix"
+                                    Settings.Type = CType(System.Enum.Parse(GetType(BarCodeType), Type), BarCodeType)
+
+                                    Settings.ShowText = False
+                                    Settings.BottomMargin = 0
+                                    Settings.TopMargin = 0
+                                    Settings.LeftMargin = 0
+                                    Settings.RightMargin = 0
+                                    Settings.ResolutionType = ResolutionType.Printer
+                                    Settings.AutoResize = True
+
+                                    Dim Generator As New BarCodeGenerator(Settings)
+                                    Dim Barcode As Image = Generator.GenerateImage
+
+                                    Dim m As New MemoryStream()
+                                    Barcode.Save(m, ImageFormat.Png)
+
+                                    Dim binaryArray As Byte()
+                                    binaryArray = m.ToArray
+
+                                    oWS = New SLWebServices.DOWebServiceSoapClient
+                                    Parms = "<Parameters>"
+                                    Parms &= "<Parameter>" & CType(ds.Tables(0).Rows(i)("TagID"), String) & "</Parameter>"
+                                    Parms &= "<Parameter>" & Convert.ToBase64String(binaryArray) & "</Parameter>"
+                                    Parms &= "</Parameters>"
+                                    oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_updateBarcodeTagSp", Parms)
+
+                                Next
+
+                                Call GetPreassignedLot()
+                                Call BindTag()
+
+                                'If TagGridView.Rows.Count > 0 Then
+
+                                '    Dim dsTag As New Data.DataSet
+                                '    Dim Filter As String
+                                '    Dim QtySmallTag As Integer
+
+                                '    QtySmallTag = GetQtySmallTag(ItemTextBox.Text)
+
+                                '    Filter = "TagQty > 0 And TagQty < " & QtySmallTag
+
+                                '    oWS = New SLWebServices.DOWebServiceSoapClient
+                                '    dsTag = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagSize, TagID, TagQty, Item, Lot, RefNum, Whse, Loc", "", "TagID", "", 0)
+
+                                '    'MsgBox(TagGridView.Rows.Count)
+                                'End If
+
+
+                            ElseIf OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And Received = 0 Then
+                                NotPassNotifyPanel.Visible = True
+                                NotPassText.Text = "ไม่ได้รายงานผล Operation ก่อนหน้า"
+
+                            ElseIf OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And Received < 0 Then
+                                NotPassNotifyPanel.Visible = True
+                                NotPassText.Text = "Job " & "'" & JobTextBox.Text & "' ไม่ระบุ Oper_Num"
+
+                            End If
+
+                            PassNotifyPanel.Visible = False
+                            NotPassNotifyPanel.Visible = False
+
+                            Dim dt_scrapped As New Data.DataTable
+                            Dim total_scrapped As Object
+                            dt_scrapped = ScrappedGridView.DataSource
+
+                            If dt_scrapped.Rows.Count > 0 Then
+                                total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+                                If IsDBNull(total_scrapped) Then
+                                    total_scrapped = "0.000"
+                                End If
+                            Else
+                                total_scrapped = "0.000"
+                            End If
+
+
+                            Dim SelectedCount As Integer = 0
+                            Dim RowCount As Integer = 0
+
+                            RowCount = MatchedGridView.Rows.Count
+                            For Each Row As GridViewRow In MatchedGridView.Rows
+                                Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+                                If SelectCheckBox.Checked Then
+                                    SelectedCount += 1
+                                End If
+                            Next
+
+                            If SelectedCount = RowCount Then
+                                Call SaveJobTran()
+                            Else
+                                Call GetBackflushLots(total_scrapped, False)
+                                NotPassText.Text = "Target Qty must match Selected Qty."
+                                NotPassNotifyPanel.Visible = True
+                            End If
+
+                        End If
+
+                        'ElseIf (Qty <> CInt(total_tag) And OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1) Then
+
+                        '    NotPassText.Text = "กรุณาตรวจสอบจำนวนรวมในแท็ก!!!"
+                        '    NotPassNotifyPanel.Visible = True
+
+                        'End If
+
+
+                    End If
+
+                Else
+
+                    NotPassText.Text = "กรุณากำหนด Fraction Location ก่อนรายงานผล!!!"
+                    NotPassNotifyPanel.Visible = True
+
+                End If
+
+            Else
+
+                'Dim QtyComplete As String
+                'Dim QtyFraction As String
+                'Dim total_tag As String
+                'Dim Qty As Integer
+
+                'QtyComplete = CompleteQtyTextBox.Text
+                'QtyFraction = IIf(txtFraction.Text = String.Empty, "0", txtFraction.Text)
+                'Qty = CInt(QtyComplete) + CInt(QtyFraction)
+                'total_tag = IIf(TotalTagQtyTextBox.Text = String.Empty, "0", CInt(TotalTagQtyTextBox.Text))
+
+                'If (Qty = CInt(total_tag) And OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1) Or _
+                '         (OperationDropDown.SelectedIndex < OperationDropDown.Items.Count - 1) Then
+
+                If ValidJobRouteAndJobMatlQtyComplete(True) Then
+
+                    Dim Received As Decimal
+                    Received = CDec(QtyReceived())
+                    'MsgBox(Received)
+
+                    If OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And Received > 0 Then
+                        oWS = New SLWebServices.DOWebServiceSoapClient
+                        Dim ds As New Data.DataSet
+                        Dim BoxTag As Integer = 1
+                        Dim BagTag As Integer = 1
+                        Dim TagType As String = ""
+
+                        'Dim ItemType As String = ""
+                        'ItemType = Left(ItemTextBox.Text, 2)
+                        'lblTagType.Text = ItemType
+
+                        'If lblTagType.Text = "TF" Then
+                        '    TagType = "SM"
+                        'ElseIf lblTagType.Text = "FG" Then
+                        '    TagType = "FG"
+                        'End If
+
+
+                        Dim Parms As String = "<Parameters>"
+                        Parms &= "<Parameter>" & SessionID.ToString & "</Parameter>"
+                        Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                        Parms &= "<Parameter>" & IIf(Left(ItemTextBox.Text, 2) = "FG", "FG", "SM") & "</Parameter>"
+                        Parms &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                        Parms &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                        Parms &= "<Parameter>" & "0000" & "</Parameter>"
+                        Parms &= "<Parameter>" & "9999" & "</Parameter>"
+                        Parms &= "<Parameter>" & "" & "</Parameter>"
+                        Parms &= "<Parameter>" & "" & "</Parameter>"
+                        Parms &= "<Parameter>" & "" & "</Parameter>"
+                        Parms &= "<Parameter>" & "" & "</Parameter>"
+                        Parms &= "<Parameter>" & BarCodeTextBox.Text & "</Parameter>"
+                        Parms &= "<Parameter>" & BarCodeTextBox.Text & "</Parameter>"
+                        Parms &= "<Parameter>" & BoxTag & "</Parameter>"
+                        Parms &= "<Parameter>" & BagTag & "</Parameter>"
+                        Parms &= "</Parameters>"
+
+                        'MsgBox(Parms)
+
+                        oWS.CallMethod(Session("Token").ToString, "PPCC_TempTags", "PPCC_PreviewTagSp", Parms)
+
+
+                        ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_TempTags", "TagSize, TagID, TagQty, Item, Lot, RefNum, ItemDescription, PrintCount, Whse, Loc", "UserID='" & Session("UserName").ToString & "' And TagType='" & IIf(Left(ItemTextBox.Text, 2) = "FG", "FG", "SM") & "'", "TagID", "", 0)
+                        'MsgBox(ds.Tables(0).Rows.Count)
+
+                        'For i As Integer = 0 To ds.Tables(0).Rows.Count - 1
+                        '    Dim Settings As New BarcodeSettings()
+                        '    BarcodeSettings.ApplyKey("GAL1B-04IQ0-V84NH-U4689-08YM3")
+                        '    Dim Data As String = CType(ds.Tables(0).Rows(i)("TagID"), String)
+                        '    Dim Type As String = "Code128"
+
+                        '    Settings.Data2D = Data
+                        '    Settings.Data = CType(ds.Tables(0).Rows(i)("TagID"), String)
+
+                        '    Type = "DataMatrix"
+                        '    Settings.Type = CType(System.Enum.Parse(GetType(BarCodeType), Type), BarCodeType)
+
+                        '    Settings.ShowText = False
+                        '    Settings.BottomMargin = 0
+                        '    Settings.TopMargin = 0
+                        '    Settings.LeftMargin = 0
+                        '    Settings.RightMargin = 0
+                        '    Settings.ResolutionType = ResolutionType.Printer
+                        '    Settings.AutoResize = True
+
+                        '    Dim Generator As New BarCodeGenerator(Settings)
+                        '    Dim Barcode As Image = Generator.GenerateImage
+
+                        '    Dim m As New MemoryStream()
+                        '    Barcode.Save(m, ImageFormat.Png)
+
+                        '    Dim binaryArray As Byte()
+                        '    binaryArray = m.ToArray
+
+                        '    oWS = New SLWebServices.DOWebServiceSoapClient
+                        '    Parms = "<Parameters>"
+                        '    Parms &= "<Parameter>" & CType(ds.Tables(0).Rows(i)("TagID"), String) & "</Parameter>"
+                        '    Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                        '    Parms &= "<Parameter>" & "C" & "</Parameter>"
+                        '    Parms &= "<Parameter>" & "J" & "</Parameter>"
+                        '    Parms &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                        '    Parms &= "<Parameter>" & Convert.ToBase64String(binaryArray) & "</Parameter>"
+                        '    Parms &= "</Parameters>"
+                        '    oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_InsertTagSp", Parms)
+
+                        'Next
+
+                        '------------Insert Tag--------------'
+                        Dim parm_inserTag As String = ""
+                        oWS = New SLWebServices.DOWebServiceSoapClient
+                        parm_inserTag = "<Parameters>"
+                        parm_inserTag &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                        parm_inserTag &= "<Parameter>" & SuffixTextBox.Text & "</Parameter>"
+                        parm_inserTag &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                        parm_inserTag &= "<Parameter>" & "C" & "</Parameter>"
+                        parm_inserTag &= "<Parameter>" & "J" & "</Parameter>"
+                        parm_inserTag &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                        parm_inserTag &= "<Parameter>" & 0 & "</Parameter>"
+                        parm_inserTag &= "</Parameters>"
+
+                        oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_InsertTag_2Sp", parm_inserTag)
+                        '------------End Insert Tag --------------'
+
+
+                        For i As Integer = 0 To ds.Tables(0).Rows.Count - 1
+                            Dim Settings As New BarcodeSettings()
+                            BarcodeSettings.ApplyKey("GAL1B-04IQ0-V84NH-U4689-08YM3")
+                            Dim Data As String = CType(ds.Tables(0).Rows(i)("TagID"), String)
+                            Dim Type As String = "Code128"
+
+                            Settings.Data2D = Data
+                            Settings.Data = CType(ds.Tables(0).Rows(i)("TagID"), String)
+
+                            Type = "DataMatrix"
+                            Settings.Type = CType(System.Enum.Parse(GetType(BarCodeType), Type), BarCodeType)
+
+                            Settings.ShowText = False
+                            Settings.BottomMargin = 0
+                            Settings.TopMargin = 0
+                            Settings.LeftMargin = 0
+                            Settings.RightMargin = 0
+                            Settings.ResolutionType = ResolutionType.Printer
+                            Settings.AutoResize = True
+
+                            Dim Generator As New BarCodeGenerator(Settings)
+                            Dim Barcode As Image = Generator.GenerateImage
+
+                            Dim m As New MemoryStream()
+                            Barcode.Save(m, ImageFormat.Png)
+
+                            Dim binaryArray As Byte()
+                            binaryArray = m.ToArray
+
+                            oWS = New SLWebServices.DOWebServiceSoapClient
+                            Parms = "<Parameters>"
+                            Parms &= "<Parameter>" & CType(ds.Tables(0).Rows(i)("TagID"), String) & "</Parameter>"
+                            Parms &= "<Parameter>" & Convert.ToBase64String(binaryArray) & "</Parameter>"
+                            Parms &= "</Parameters>"
+                            oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_updateBarcodeTagSp", Parms)
+
+                        Next
+
+                        Call GetPreassignedLot()
+                        Call BindTag()
+
+                        'If TagGridView.Rows.Count > 0 Then
+
+                        '    Dim dsTag As New Data.DataSet
+                        '    Dim Filter As String
+                        '    Dim QtySmallTag As Integer
+
+                        '    QtySmallTag = GetQtySmallTag(ItemTextBox.Text)
+
+                        '    Filter = "TagQty > 0 And TagQty < " & QtySmallTag
+
+                        '    oWS = New SLWebServices.DOWebServiceSoapClient
+                        '    dsTag = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagSize, TagID, TagQty, Item, Lot, RefNum, Whse, Loc", "", "TagID", "", 0)
+
+                        '    'MsgBox(TagGridView.Rows.Count)
+                        'End If
+
+
+                    ElseIf OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And Received = 0 Then
+                        NotPassNotifyPanel.Visible = True
+                        NotPassText.Text = "ไม่ได้รายงานผล Operation ก่อนหน้า"
+
+                    ElseIf OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And Received < 0 Then
+                        NotPassNotifyPanel.Visible = True
+                        NotPassText.Text = "Job " & "'" & JobTextBox.Text & "' ไม่ระบุ Oper_Num"
+
+                    End If
+
+                    PassNotifyPanel.Visible = False
+                    NotPassNotifyPanel.Visible = False
+
+                    Dim dt_scrapped As New Data.DataTable
+                    Dim total_scrapped As Object
+                    dt_scrapped = ScrappedGridView.DataSource
+
+                    If dt_scrapped.Rows.Count > 0 Then
+                        total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+                        If IsDBNull(total_scrapped) Then
+                            total_scrapped = "0.000"
+                        End If
+                    Else
+                        total_scrapped = "0.000"
+                    End If
+
+
+                    Dim SelectedCount As Integer = 0
+                    Dim RowCount As Integer = 0
+
+                    RowCount = MatchedGridView.Rows.Count
+                    For Each Row As GridViewRow In MatchedGridView.Rows
+                        Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+                        If SelectCheckBox.Checked Then
+                            SelectedCount += 1
+                        End If
+                    Next
+
+                    If SelectedCount = RowCount Then
+                        Call SaveJobTran()
+                    Else
+                        Call GetBackflushLots(total_scrapped, False)
+                        NotPassText.Text = "Target Qty must match Selected Qty."
+                        NotPassNotifyPanel.Visible = True
+                    End If
+
+                End If
+
+                '    ElseIf (Qty <> CInt(total_tag) And OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1) Then
+
+                '    NotPassText.Text = "กรุณาตรวจสอบจำนวนรวมในแท็ก!!!"
+                '    NotPassNotifyPanel.Visible = True
+
+                'End If
+
+
+            End If
+
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub SaveJobTran()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim IndCode As String = ""
+            Dim ReasonCode As String = ""
+            Dim TransClass As String = "J"
+            Dim PsNum As String = ""
+            Dim AwaitingEOP As String = "0"
+            Dim Fixovhd As String = "0"
+            Dim Varovhd As String = "0"
+            Dim CostCode As String = ""
+            Dim CoProductMix As String = ""
+            Dim ImportDocID As String = ""
+            Dim ContainerNum As String = ""
+            Dim TransNum As String = TransNumTextBox.Text
+            Dim StartTimeSec As String = ""
+            Dim EndTimeSec As String = ""
+            Dim Total_hour As Decimal = 0
+            Dim QtyMove As Decimal = 0
+            Dim QtyComplete As Decimal = 0
+
+            QtyMove = CDec(CompleteQtyTextBox.Text)
+            QtyComplete = CDec(CompleteQtyTextBox.Text)
+
+            StartTimeSec = DateDiff(DateInterval.Second, Convert.ToDateTime("1900-01-01"), Convert.ToDateTime("1900-01-01 " & StartTimeTextBox.Text)).ToString
+            EndTimeSec = DateDiff(DateInterval.Second, Convert.ToDateTime("1900-01-01"), Convert.ToDateTime("1900-01-01 " & EndTimeTextBox.Text)).ToString
+
+            Dim Parms As String = "<Parameters><Parameter>" & JobTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & SuffixTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & TransTypeDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter>" & TransDateTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & QtyComplete & "</Parameter>" & _
+                                           "<Parameter>" & "0" & "</Parameter>" & _
+                                           "<Parameter>" & OperationDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter>" & TotalHoursTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & NextOperDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter>" & EmpNumDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter>" & StartTimeSec & "</Parameter>" & _
+                                           "<Parameter>" & EndTimeSec & "</Parameter>" & _
+                                           "<Parameter>" & IndCode & "</Parameter>" & _
+                                           "<Parameter>" & PayTypeDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter>" & QtyMove & "</Parameter>" & _
+                                           "<Parameter>" & WhseTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & MoveToLocationDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter>" & UserCodeTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & CloseJobTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & IssueParentsTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & LotDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter>" & CompleteOperTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & PrRateTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & JobRateTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & ShiftDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter>" & LowLevelTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & BackflushTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & ReasonCode & "</Parameter>" & _
+                                           "<Parameter>" & TransClass & "</Parameter>" & _
+                                           "<Parameter>" & PsNum & "</Parameter>" & _
+                                           "<Parameter>" & WcTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & AwaitingEOP & "</Parameter>" & _
+                                           "<Parameter>" & Fixovhd & "</Parameter>" & _
+                                           "<Parameter>" & Varovhd & "</Parameter>" & _
+                                           "<Parameter>" & CostCode & "</Parameter>" & _
+                                           "<Parameter>" & CoProductMix & "</Parameter>" & _
+                                           "<Parameter>" & ImportDocID & "</Parameter>" & _
+                                           "<Parameter>" & ContainerNum & "</Parameter>" & _
+                                           "<Parameter>" & EmpCountTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & LeaveHoursTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & ManHoursTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & RemarkTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & PcsPerHrsTextBox.Text & "</Parameter>" & _
+                                           "<Parameter>" & MachineDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter>" & UserDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter>" & HeadDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter>" & ProductionShiftDropDown.SelectedValue & "</Parameter>" & _
+                                           "<Parameter ByRef='Y'>" & TransNumTextBox.Text & "</Parameter></Parameters>"
+            Dim res As Object
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            res = oWS.CallMethod(Session("Token").ToString, "PPCC_JobTrans", "PPCC_CreateJobTransactionSp", Parms)
+
+            'MsgBox(TransDateTextBox.Text)
+
+
+            If res = 0 Then
+                Dim doc As XmlDocument = New XmlDocument()
+                doc.LoadXml(Parms)
+                Dim elem As XmlNode = doc.DocumentElement.LastChild
+                TransNumTextBox.Text = elem.InnerText
+
+                Call SaveOverideBackflush()
+            End If
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub AddDTButton_Click(sender As Object, e As System.EventArgs) Handles AddDTButton.Click
+        Try
+            NotPassNotifyPanel.Visible = False
+            If Convert.ToDouble(DTTotalHrsTextBox.Text) <> 0 Then
+                Call AddDownTime(DTCodeDropDown.SelectedValue, _
+                               DTStartTimeTextBox.Text, _
+                               DTEndTimeTextBox.Text, _
+                               DTTotalHrsTextBox.Text, _
+                               JobTextBox.Text, _
+                               SuffixTextBox.Text)
+            End If
+
+            DTCodeDropDown.SelectedIndex = 0
+            DTStartTimeTextBox.Text = "00:00"
+            DTEndTimeTextBox.Text = "00:00"
+            DTTotalHrsTextBox.Text = "0.000"
+            'DTDescriptionTextBox.Text = ""
+            DTType.Text = ""
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub DTCodeDropDown_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles DTCodeDropDown.SelectedIndexChanged
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim ds As New Data.DataSet
+            Dim Filter As String = "ReasonCode='" & DTCodeDropDown.SelectedValue & "' And ReasonClass='MFG DOWN TIME'"
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLReasons", "ReasonCode, Description, reaUf_Reason_DTType", Filter, "ReasonCode", "", 0)
+
+            If ds.Tables(0).Rows.Count > 0 Then
+                'DTDescriptionTextBox.Text = ds.Tables(0).Rows(0)("Description").ToString
+                DTType.Text = ds.Tables(0).Rows(0)("reaUf_Reason_DTType").ToString
+            End If
+
+            Call RebindDownTime()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub EmptyQtyTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles EmptyQtyTextBox.TextChanged
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim oInvoke As Object
+            Dim Parms As String = "<Parameters><Parameter>" & EmptyUMDropDown.SelectedValue & "</Parameter>" & _
+                                    "<Parameter>" & ItemTextBox.Text & "</Parameter>" & _
+                                    "<Parameter>" & "" & "</Parameter>" & _
+                                    "<Parameter>" & "" & "</Parameter>" & _
+                                    "<Parameter>" & "1" & "</Parameter>" & _
+                                    "<Parameter>" & EmptyQtyTextBox.Text & "</Parameter>" & _
+                                    "<Parameter ByRef='Y'>" & "" & "</Parameter>" & _
+                                    "<Parameter ByRef='Y'>" & "" & "</Parameter></Parameters>"
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            oInvoke = oWS.CallMethod(Session("Token").ToString, "SLUMs", "UMConvQtySp", Parms)
+
+            If oInvoke = "0" Then
+                Dim doc As XmlDocument = New XmlDocument()
+                doc.LoadXml(Parms)
+                Dim i As Integer = 1
+                For Each node As XmlNode In doc.DocumentElement
+                    If i = 7 Then
+                        'ShiftDropDown.SelectedValue = node.InnerText
+                        EmptyQtyConvTextBox.Text = node.InnerText
+                    End If
+                    i += 1
+                Next
+            End If
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub DTGridView_RowCommand(sender As Object, e As System.Web.UI.WebControls.GridViewCommandEventArgs) Handles DTGridView.RowCommand
+        Try
+            NotPassNotifyPanel.Visible = False
+            If e.CommandName = "DeleteDT" Then
+                Dim oReturn As Object
+                Dim RowPointer As String = e.CommandArgument.ToString
+                Dim Parms As String = "<Parameters><Parameter>" & RowPointer & "</Parameter></Parameters>"
+
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                oReturn = oWS.CallMethod(Session("Token").ToString, "PPCC_DownTimeTrans", "PPCC_WSDeleteDtSp", Parms)
+
+                Call RebindDownTime()
+            End If
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Sub Process()
+
+
+            Dim oInvoke As Object
+            Dim Parms As String = "<Parameters><Parameter>" & TransNumTextBox.Text & "</Parameter></Parameters>"
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            oInvoke = oWS.CallMethod(Session("Token").ToString, "PPCC_JobTrans", "PPCC_CreateJobTransaction2Sp", Parms) 'Create scrapped and down time transactions.
+
+            If oInvoke = "0" Then
+                Dim PostCompleteVar As String = "0"
+                Dim PostNegativeInventoryVar As String = "0"
+                Dim StartJobVar As String = JobTextBox.Text
+                Dim EndJobVar As String = JobTextBox.Text
+                Dim StartSuffixVar As String = SuffixTextBox.Text
+                Dim EndSuffixVar As String = SuffixTextBox.Text
+                Dim StartTransDateVar As String = ""
+                Dim EndTransDateVar As String = ""
+                Dim StartEmpNumVar As String = ""
+                Dim EndEmpNumVar As String = ""
+                Dim StartDeptVar As String = ""
+                Dim EndDeptVar As String = ""
+                Dim StartShiftVar As String = ""
+                Dim EndShiftVar As String = ""
+                Dim StartUserCodeVar As String = UserCodeTextBox.Text
+                Dim EndUserCodeVar As String = UserCodeTextBox.Text
+                Dim EmployeeTypeVar As String = "H S N"
+                Dim FormCurWhse As String = ""
+                Dim BlankVar1 As String = ""
+                Dim BlankVar2 As String = ""
+                Dim BlankVar3 As String = ""
+
+                Parms = "<Parameters><Parameter>" & PostCompleteVar & "</Parameter>" & _
+                                        "<Parameter>" & PostNegativeInventoryVar & "</Parameter>" & _
+                                        "<Parameter>" & StartJobVar & "</Parameter>" & _
+                                        "<Parameter>" & EndJobVar & "</Parameter>" & _
+                                        "<Parameter>" & StartSuffixVar & "</Parameter>" & _
+                                        "<Parameter>" & EndSuffixVar & "</Parameter>" & _
+                                        "<Parameter>" & StartTransDateVar & "</Parameter>" & _
+                                        "<Parameter>" & EndTransDateVar & "</Parameter>" & _
+                                        "<Parameter>" & StartEmpNumVar & "</Parameter>" & _
+                                        "<Parameter>" & EndEmpNumVar & "</Parameter>" & _
+                                        "<Parameter>" & StartDeptVar & "</Parameter>" & _
+                                        "<Parameter>" & EndDeptVar & "</Parameter>" & _
+                                        "<Parameter>" & StartShiftVar & "</Parameter>" & _
+                                        "<Parameter>" & EndShiftVar & "</Parameter>" & _
+                                        "<Parameter>" & StartUserCodeVar & "</Parameter>" & _
+                                        "<Parameter>" & EndUserCodeVar & "</Parameter>" & _
+                                        "<Parameter>" & EmployeeTypeVar & "</Parameter>" & _
+                                        "<Parameter>" & FormCurWhse & "</Parameter>" & _
+                                        "<Parameter></Parameter>" & _
+                                        "<Parameter></Parameter>" & _
+                                        "<Parameter  ByRef='Y'></Parameter>" & _
+                                        "<Parameter  ByRef='Y'></Parameter>" & _
+                                        "<Parameter>" & "" & "</Parameter></Parameters>"
+
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                oInvoke = oWS.CallMethod(Session("Token").ToString, "SLJobTrans", "JobJobP", Parms) 'Posted job transactions standard method.
+
+                Dim doc As XmlDocument = New XmlDocument()
+                doc.LoadXml(Parms)
+                Dim i As Integer = 1
+
+                If oInvoke = "0" Then
+                    PassNotifyPanel.Visible = True
+                    For Each node As XmlNode In doc.DocumentElement
+                        If i = 21 Then 'PromptMessage
+                            PassText.Text &= node.InnerText & "<br />"
+                        End If
+                        i += 1
+                    Next
+
+                    'Create transactions for job issue.
+                    For Each row As Data.DataRow In dt_bf_tag.Rows
+                        Dim res As Object = Nothing
+                        Parms = "<Parameters><Parameter>" & TransDateTextBox.Text & "</Parameter>"
+                        Parms &= "<Parameter>" & row("TagID") & "</Parameter>"
+                        Parms &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                        Parms &= "<Parameter>" & SuffixTextBox.Text & "</Parameter>"
+                        Parms &= "<Parameter>" & OperationDropDown.SelectedValue & "</Parameter>"
+                        Parms &= "<Parameter>" & row("Qty") & "</Parameter>"
+                        Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                        Parms &= "<Parameter>" & Session("Employee").ToString & "</Parameter></Parameters>"
+
+                        oWS = New SLWebServices.DOWebServiceSoapClient
+                        res = oWS.CallMethod(Session("Token").ToString, "PPCC_TagTrans", "PPCC_WSCreateBackflushTagTransactionSp", Parms)
+                    Next
+
+                    'Add Code Phase Fraction
+
+                'Dim Fraction_type As String = ""
+                'Fraction_type = GetItemFracTypeByItem(ItemTextBox.Text)
+
+                'If Fraction_type = "M" Or Fraction_type = "I" Then
+
+                'If txtFractionLoc.Text <> "" Then
+
+                Dim Received As Decimal
+                Received = CDec(QtyReceived())
+
+                If OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And Received > 0 Then
+
+                    If txtFractionLoc.Text <> "" Then
+
+                        If GridFraction.Rows.Count > 0 Then
+
+                            For Each Row As GridViewRow In GridFraction.Rows
+
+                                Dim Parameter As String = ""
+                                Dim oInvoke1 As Object
+
+                                Parameter = "<Parameters><Parameter>" & Row.Cells(9).Text & "</Parameter>"
+                                Parameter &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                                Parameter &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                                Parameter &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                                Parameter &= "<Parameter>" & ItemTextBox.Text & "</Parameter>"
+                                Parameter &= "<Parameter>" & SuffixTextBox.Text & "</Parameter>"
+                                Parameter &= "<Parameter>" & TransDateTextBox.Text & "</Parameter>"
+                                Parameter &= "<Parameter>" & WhseTextBox.Text & "</Parameter>"
+                                Parameter &= "<Parameter>" & LotDropDown.SelectedItem.Text & "</Parameter></Parameters>"
+
+                                oWS = New SLWebServices.DOWebServiceSoapClient
+                                oInvoke1 = oWS.CallMethod(Session("Token").ToString, "ppcc_fraction_bals", "PPCC_IssueRecFractionTransSp", Parameter)
+                            Next
+
+
+                        End If
+
+
+                        'Dim ds As New Data.DataSet
+                        'Dim Filter As String = "RefNum = '" & JobTextBox.Text & "'and TagSize = 'S' and TagQty <>" & 0
+                        'oWS = New SLWebServices.DOWebServiceSoapClient
+                        'ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagID", Filter, "", "", 0)
+
+                        'If ds.Tables(0).Rows.Count > 0 Then
+
+                        '    For j As Integer = 0 To ds.Tables(0).Rows.Count - 1
+
+                        Dim Parms1 As String = ""
+                        Dim oInvoke2 As Object
+
+                        'Parms1 = "<Parameters><Parameter>" & ds.Tables(0).Rows(j).Item("TagID").ToString & "</Parameter>"
+                        Parms1 &= "<Parameters><Parameter>" & Session("UserName").ToString & "</Parameter>"
+                        Parms1 &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                        Parms1 &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+                        Parms1 &= "<Parameter>" & ItemTextBox.Text & "</Parameter>"
+                        Parms1 &= "<Parameter>" & SuffixTextBox.Text & "</Parameter>"
+                        Parms1 &= "<Parameter>" & TransDateTextBox.Text & "</Parameter>"
+                        Parms1 &= "<Parameter>" & WhseTextBox.Text & "</Parameter>"
+                        Parms1 &= "<Parameter>" & LotDropDown.SelectedItem.Text & "</Parameter></Parameters>"
+
+                        oWS = New SLWebServices.DOWebServiceSoapClient
+                        oInvoke2 = oWS.CallMethod(Session("Token").ToString, "ppcc_fraction_bals", "PPCC_InsertTagTransFractionCompleteSp", Parms1)
+
+                        '    Nexts
+
+                        'End If
+
+                        ' If CInt(CompleteQtyTextBox.Text) >= 0 Then
+
+                        Dim res As Object = Nothing
+                        Dim Parms2 As String = ""
+                        Parms2 = "<Parameters><Parameter  ByRef='Y'></Parameter></Parameters>"
+
+                        oWS = New SLWebServices.DOWebServiceSoapClient
+                        res = oWS.CallMethod(Session("Token").ToString, "SLItems", "RebalItemQtyOnHandSp", Parms2)
+
+                        Dim xml As XmlDocument = New XmlDocument()
+                        xml.LoadXml(Parms2)
+                        'Dim k As Integer = 1
+
+                        'If res = "0" Then
+                        '    PassNotifyPanel.Visible = True
+                        '    For Each node As XmlNode In doc.DocumentElement
+                        '        If k = 1 Then 'PromptMessage
+                        '            PassText.Text &= node.InnerText & "<br />"
+                        '        End If
+                        '        k += 1
+                        '    Next
+                        'End If
+
+                        ' End If
+
+                    End If
+
+                    'Else
+
+                    '    NotPassText.Text = "กรุณากำหนด Fraction Location ก่อนรายงานผล!!!"
+                    '    NotPassNotifyPanel.Visible = True
+
+                    'End If
+
+                End If
+
+                'Else
+
+                '    NotPassText.Text = "กรุณากำหนด Fraction Location ก่อนรายงานผล!!!"
+                '    NotPassNotifyPanel.Visible = True
+
+                'End If
+
+                'End If
+
+
+                Call ClearForm()
+            Else
+                NotPassNotifyPanel.Visible = True
+                For Each node As XmlNode In doc.DocumentElement
+                    If i = 21 Then 'PromptMessage
+                        NotPassText.Text &= node.InnerText & "<br />"
+                    End If
+                    i += 1
+                Next
+
+                'Clear scrapped and down time transactions when post job error.
+                Parms = "<Parameters><Parameter>" & TransNumTextBox.Text & "</Parameter></Parameters>"
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                oInvoke = oWS.CallMethod(Session("Token").ToString, "PPCC_JobTrans", "PPCC_WSClearDownTimeAndScrappedSp", Parms)
+
+            End If
+        End If
+    End Sub
+
+    Protected Sub ProcessButton_Click(sender As Object, e As System.EventArgs) Handles ProcessButton.Click
+        Try
+
+            Dim FractionType As String = ""
+            FractionType = GetItemFracTypeByItem(ItemTextBox.Text)
+
+            If FractionType = "M" Or FractionType = "I" Then
+
+                If (OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And txtFractionLoc.Text <> "") Or _
+                (OperationDropDown.SelectedIndex < OperationDropDown.Items.Count - 1) Then
+
+                    If ValidJobRouteAndJobMatlQtyComplete(True) Then
+                        PassText.Text = ""
+                        NotPassText.Text = ""
+                        PassNotifyPanel.Visible = False
+                        NotPassNotifyPanel.Visible = False
+
+                        Dim dt_scrapped As New Data.DataTable
+                        Dim total_scrapped As Object
+                        dt_scrapped = ScrappedGridView.DataSource
+
+                        If dt_scrapped.Rows.Count > 0 Then
+                            total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+                            If IsDBNull(total_scrapped) Then
+                                total_scrapped = "0.000"
+                            End If
+                        Else
+                            total_scrapped = "0.000"
+                        End If
+
+                        Dim SelectedCount As Integer = 0
+                        Dim RowCount As Integer = 0
+                        RowCount = MatchedGridView.Rows.Count
+                        For Each Row As GridViewRow In MatchedGridView.Rows
+                            Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+                            If SelectCheckBox.Checked Then
+                                SelectedCount += 1
+                            End If
+                        Next
+
+                        If SelectedCount = RowCount Then
+
+                            Call SaveJobTran()
+                            Call Process()
+
+
+                        Else
+                            Call GetBackflushLots(total_scrapped, False)
+                            NotPassText.Text = "Target Qty must match Selected Qty."
+                            NotPassNotifyPanel.Visible = True
+                        End If
+
+                    End If
+
+                    'End If
+
+                Else
+
+                    NotPassText.Text = "กรุณากำหนด Fraction Location ก่อนรายงานผล!!!"
+                    NotPassNotifyPanel.Visible = True
+
+
+                End If
+
+            Else
+
+                If ValidJobRouteAndJobMatlQtyComplete(True) Then
+                    PassText.Text = ""
+                    NotPassText.Text = ""
+                    PassNotifyPanel.Visible = False
+                    NotPassNotifyPanel.Visible = False
+
+                    Dim dt_scrapped As New Data.DataTable
+                    Dim total_scrapped As Object
+                    dt_scrapped = ScrappedGridView.DataSource
+
+                    If dt_scrapped.Rows.Count > 0 Then
+                        total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+                        If IsDBNull(total_scrapped) Then
+                            total_scrapped = "0.000"
+                        End If
+                    Else
+                        total_scrapped = "0.000"
+                    End If
+
+                    Dim SelectedCount As Integer = 0
+                    Dim RowCount As Integer = 0
+                    RowCount = MatchedGridView.Rows.Count
+                    For Each Row As GridViewRow In MatchedGridView.Rows
+                        Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+                        If SelectCheckBox.Checked Then
+                            SelectedCount += 1
+                        End If
+                    Next
+
+                    If SelectedCount = RowCount Then
+
+                        Call SaveJobTran()
+                        Call Process()
+
+
+                    Else
+                        Call GetBackflushLots(total_scrapped, False)
+                        NotPassText.Text = "Target Qty must match Selected Qty."
+                        NotPassNotifyPanel.Visible = True
+                    End If
+
+                End If
+
+            End If
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Private Shared RptTagList As Data.DataTable
+
+    Function TaskManRunning(ByVal TaskNumber As String) As Boolean
+        Dim StartDate As String = ""
+        Dim CompletionDate As String = ""
+        Dim ds As New Data.DataSet
+        Dim i As Integer = 0
+        oWS = New SLWebServices.DOWebServiceSoapClient
+
+        ds = oWS.LoadDataSet(Session("Token").ToString, "BGTaskHistories", "TaskNumber, SubmissionDate, StartDate, CompletionDate", "TaskNumber=" & TaskNumber, "", "", 0)
+        StartDate = ds.Tables(0).Rows(0)("StartDate").ToString
+
+        Dim TaskInterval1 As String = System.Configuration.ConfigurationManager.AppSettings("TaskInterval1")
+        Dim TaskInterval2 As String = System.Configuration.ConfigurationManager.AppSettings("TaskInterval2")
+
+        If TaskInterval1 Is Nothing Then
+            TaskInterval1 = "240" 'Max 2 Minutes
+        End If
+
+        If TaskInterval2 Is Nothing Then
+            TaskInterval2 = "600" 'Max 5 Minutes
+        End If
+
+        While StartDate = "" And i < Convert.ToInt32(TaskInterval1)
+            ds = New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "BGTaskHistories", "StartDate", "TaskNumber=" & TaskNumber, "", "", 0)
+            StartDate = ds.Tables(0).Rows(0)("StartDate").ToString
+            System.Threading.Thread.Sleep(500)
+            i += 1
+        End While
+
+        If StartDate <> "" Then
+            i = 0
+            ds = New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "BGTaskHistories", "CompletionDate", "TaskNumber=" & TaskNumber, "", "", 0)
+
+            While CompletionDate = "" And i < Convert.ToInt32(TaskInterval2)
+                ds = New Data.DataSet
+                ds = oWS.LoadDataSet(Session("Token").ToString, "BGTaskHistories", "CompletionDate", "TaskNumber=" & TaskNumber, "", "", 0)
+                CompletionDate = ds.Tables(0).Rows(0)("CompletionDate").ToString
+                System.Threading.Thread.Sleep(500)
+                i += 1
+            End While
+        End If
+
+
+        Dim FileName As String = ""
+        If CompletionDate <> "" Then
+            Dim OutputPath As String = ""
+
+            ds = New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "BGTaskHistories", "ReportOutputPath", "TaskNumber=" & TaskNumber, "", "", 0)
+            OutputPath = ds.Tables(0).Rows(0)("ReportOutputPath").ToString
+            FileName = OutputPath.Substring(OutputPath.LastIndexOf("\"c) + 1)
+        End If
+
+        RptTagList = New Data.DataTable
+        RptTagList.Columns.Add("FileName", Type.GetType("System.String"))
+        RptTagList.Columns.Add("URL", Type.GetType("System.String"))
+
+        If FileName <> "" Then
+            Dim url As String = System.Configuration.ConfigurationManager.AppSettings("ReportAddress")
+            Dim row As Data.DataRow
+            row = RptTagList.NewRow
+            row("FileName") = FileName
+            row("URL") = url & Session("UserName").ToString & "/" & FileName
+            RptTagList.Rows.Add(row)
+        End If
+
+        Return True
+    End Function
+
+    Protected Sub DTEndTimeTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles DTEndTimeTextBox.TextChanged
+        Try
+            NotPassNotifyPanel.Visible = False
+            Call CalTotalHrs()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Protected Sub DTStartTimeTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles DTStartTimeTextBox.TextChanged
+        Try
+            NotPassNotifyPanel.Visible = False
+            Call CalTotalHrs()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Sub CalTotalHrs()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim StartTime As String = DTStartTimeTextBox.Text
+            Dim EndTime As String = DTEndTimeTextBox.Text
+
+            Dim TotalHrs As Decimal = DateDiff(DateInterval.Minute, Convert.ToDateTime("1900-1-1 " & StartTime), Convert.ToDateTime("1900-1-1 " & EndTime)) / 60.0
+            DTTotalHrsTextBox.Text = TotalHrs.ToString
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Sub SaveOverideBackflush()
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim sJob As String = JobTextBox.Text
+            Dim sSuffix As String = SuffixTextBox.Text
+            Dim sOperNum As String = "'"
+            Dim sSeq As String = ""
+            Dim sNeeded As String = ""
+            Dim sRequired As String = ""
+            Dim sSelect As String = ""
+            Dim sLot As String = ""
+            Dim sWhse As String = ""
+            Dim sLoc As String = ""
+            Dim sItem As String = ""
+            Dim sEmpNum As String = ""
+            Dim sWc As String = ""
+            Dim sTransClass As String = ""
+            Dim sTransSeq As String = ""
+
+            For Each Row As GridViewRow In BFGridView.Rows
+                Dim OperNumLabel As Label = DirectCast(Row.FindControl("OperationLabel"), Label)
+                Dim SeqLabel As Label = DirectCast(Row.FindControl("SeqLabel"), Label)
+                Dim NeededLabel As Label = DirectCast(Row.FindControl("QtyNeededLabel"), Label)
+                Dim RequiredTextBox As TextBox = DirectCast(Row.FindControl("QtyRequiredTextBox"), TextBox)
+                Dim LotLabel As Label = DirectCast(Row.FindControl("LotLabel"), Label)
+                Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+                Dim WhseLabel As Label = DirectCast(Row.FindControl("WhseLabel"), Label)
+                Dim LocationLabel As Label = DirectCast(Row.FindControl("LocationLabel"), Label)
+                Dim ItemLabel As Label = DirectCast(Row.FindControl("ItemLabel"), Label)
+                Dim EmployeeLabel As Label = DirectCast(Row.FindControl("EmployeeLabel"), Label)
+                Dim WcLabel As Label = DirectCast(Row.FindControl("WcLabel"), Label)
+                Dim TransClassLabel As Label = DirectCast(Row.FindControl("TransClassLabel"), Label)
+                Dim TransSeqLabel As Label = DirectCast(Row.FindControl("TransSeqLabel"), Label)
+
+                sOperNum = OperNumLabel.Text
+                sSeq = SeqLabel.Text
+                sNeeded = NeededLabel.Text
+                sRequired = RequiredTextBox.Text
+                sLot = LotLabel.Text
+                sSelect = IIf(SelectCheckBox.Checked, "1", "0")
+                sWhse = WhseLabel.Text
+                sLoc = LocationLabel.Text
+                sItem = ItemLabel.Text
+                sEmpNum = EmployeeLabel.Text
+                sWc = WcLabel.Text
+                sTransClass = TransClassLabel.Text
+                sTransSeq = TransSeqLabel.Text
+
+                Dim Parms As String = "<Parameters><Parameter>" & TransNumTextBox.Text & "</Parameter>" & _
+                               "<Parameter>" & sWhse & "</Parameter>" & _
+                               "<Parameter>" & sLot & "</Parameter>" & _
+                               "<Parameter>" & sSelect & "</Parameter>" & _
+                               "<Parameter>" & sJob & "</Parameter>" & _
+                               "<Parameter>" & sSuffix & "</Parameter>" & _
+                               "<Parameter>" & sOperNum & "</Parameter>" & _
+                               "<Parameter>" & sSeq & "</Parameter>" & _
+                               "<Parameter>" & sEmpNum & "</Parameter>" & _
+                               "<Parameter>" & sItem & "</Parameter>" & _
+                               "<Parameter>" & sLoc & "</Parameter>" & _
+                               "<Parameter>" & sNeeded & "</Parameter>" & _
+                               "<Parameter>" & sRequired & "</Parameter>" & _
+                               "<Parameter>" & sWc & "</Parameter>" & _
+                               "<Parameter>" & sTransClass & "</Parameter>" & _
+                               "<Parameter>" & sTransSeq & "</Parameter>" & _
+                               "<Parameter ByRef='Y'>" & DBNull.Value & "</Parameter></Parameters>"
+
+                Dim res As Object
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                res = oWS.CallMethod(Session("Token").ToString, "SLLots", "BflushLotSaveSp", Parms)
+
+                If res = "0" Then
+                    Dim doc As XmlDocument = New XmlDocument()
+                    doc.LoadXml(Parms)
+                    Dim i As Integer = 1
+                    For Each node As XmlNode In doc.DocumentElement
+                        If i = 17 Then
+                            If Trim(node.InnerText) <> "" Then
+                                PassNotifyPanel.Visible = True
+                                PassText.Text &= node.InnerText & "<br />"
+                            End If
+                        End If
+                        i += 1
+                    Next
+                Else
+                    '--Error
+                    Dim doc As XmlDocument = New XmlDocument()
+                    doc.LoadXml(Parms)
+                    Dim i As Integer = 1
+                    For Each node As XmlNode In doc.DocumentElement
+                        If i = 17 Then
+                            If Trim(node.InnerText) <> "" Then
+                                NotPassNotifyPanel.Visible = True
+                                NotPassText.Text &= node.InnerText & "<br />"
+                            End If
+                        End If
+                        i += 1
+                    Next
+                End If
+            Next
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub SelectCheckBox_CheckedChanged()
+        Dim dt_scrapped As New Data.DataTable
+        Dim total_scrapped As Object
+        dt_scrapped = ScrappedGridView.DataSource
+
+        If dt_scrapped.Rows.Count > 0 Then
+            total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+            If IsDBNull(total_scrapped) Then
+                total_scrapped = "0.000"
+            End If
+        Else
+            total_scrapped = "0.000"
+        End If
+
+        Call GetBackflushLots(total_scrapped, True)
+    End Sub
+
+    Protected Sub BarCodeTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles BarCodeTextBox.TextChanged
+        NotPassNotifyPanel.Visible = False
+        PassNotifyPanel.Visible = False
+
+        Try
+            Dim StrBarcode() As String = BarCodeTextBox.Text.Split("-"c)
+
+            If StrBarcode.Length = 3 Then
+                Dim ListItem As ListItem = JobDropDown.Items.FindByValue(UCase(StrBarcode(0).ToString))
+
+                If ListItem IsNot Nothing Then
+                    JobDropDown.SelectedValue = UCase(StrBarcode(0).ToString)
+                    JobTextBox.Text = UCase(StrBarcode(0).ToString)
+
+                    Dim Suffix As String = "0000"
+                    Dim Oper As String = "10"
+
+                    If IsNumeric(StrBarcode(1).ToString) Then
+                        Suffix = StrBarcode(1).ToString
+                    End If
+                    If IsNumeric(StrBarcode(2).ToString) Then
+                        Oper = StrBarcode(2).ToString
+                    End If
+
+                    SuffixTextBox.Text = Suffix
+
+                    ItemTextBox.Text = Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("Item").ToString
+                    ItemDescriptionTextBox.Text = Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("Description").ToString
+                    QtyReleasedTextBox.Text = Convert.ToDouble(Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("QtyReleased").ToString).ToString("##,##0.000")
+
+                    'MsgBox(LastOperNum)
+
+                    Call GetItemInfo()
+                    Call BindOperationAndWc(Oper)
+                    'Call GetItemInfo()
+                    Call ShowTagTables()
+
+                    Dim LastOperNum As String = ""
+                    LastOperNum = GetLastOprtByJob()
+
+
+                    If StrBarcode(2).ToString = LastOperNum Then
+
+                        Dim FractionType As String = ""
+                        FractionType = GetItemFracTypeByItem(ItemTextBox.Text)
+
+                        If FractionType = "M" Or FractionType = "I" Then
+                            Call displayGridFraction()
+                        Else
+                            txtFractionLoc.Text = String.Empty
+                        End If
+
+                    Else
+                        txtFractionLoc.Text = String.Empty
+                    End If
+
+                Else
+                    Call LoadJob()
+
+                    Dim ListJob As ListItem = JobDropDown.Items.FindByValue(StrBarcode(0).ToString)
+                    If ListJob IsNot Nothing Then
+                        JobDropDown.SelectedValue = StrBarcode(0).ToString
+                        JobTextBox.Text = StrBarcode(0).ToString
+
+                        ItemTextBox.Text = Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("Item").ToString
+                        ItemDescriptionTextBox.Text = Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("Description").ToString
+                        QtyReleasedTextBox.Text = Convert.ToDouble(Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("QtyReleased").ToString).ToString("##,##0.000")
+
+                        Call displayGridFraction()
+
+                    End If
+
+                    Dim Suffix As String = "0000"
+                    Dim Oper As String = "10"
+
+                    If IsNumeric(StrBarcode(1).ToString) Then
+                        Suffix = StrBarcode(1).ToString
+                    End If
+                    If IsNumeric(StrBarcode(2).ToString) Then
+                        Oper = StrBarcode(2).ToString
+                    End If
+
+                    SuffixTextBox.Text = Suffix
+
+                    Call GetItemInfo()
+                    Call BindOperationAndWc(Oper)
+                    'Call GetItemInfo()
+                    Call ShowTagTables()
+
+                End If
+            End If
+
+            If Left(ItemTextBox.Text, 2) = "TF" Then
+                PrintTagButton.Visible = True
+                HiddenField1.Value = "tag_sm.aspx?j=" & JobTextBox.Text
+            ElseIf Left(ItemTextBox.Text, 2) = "FG" Then
+                PrintTagButton.Visible = True
+                HiddenField1.Value = "tag_fg.aspx?j=" & JobTextBox.Text
+            Else
+                PrintTagButton.Visible = False
+            End If
+
+            Dim dt_scrapped As New Data.DataTable
+            dt_scrapped = ScrappedGridView.DataSource
+
+            Dim dt_downtime As New Data.DataTable
+            dt_downtime = DTGridView.DataSource
+
+            For Each d_row As Data.DataRow In dt_scrapped.Rows
+                Dim oReturn As Object
+                Dim RowPointer As String = d_row("RowPointer").ToString
+                Dim Parms As String = "<Parameters><Parameter>" & RowPointer & "</Parameter></Parameters>"
+
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                oReturn = oWS.CallMethod(Session("Token").ToString, "PPCC_ScrappedTrans", "PPCC_WSDeleteScrapSp", Parms)
+            Next
+
+            For Each d_row As Data.DataRow In dt_downtime.Rows
+                Dim oReturn As Object
+                Dim RowPointer As String = d_row("RowPointer").ToString
+                Dim Parms As String = "<Parameters><Parameter>" & RowPointer & "</Parameter></Parameters>"
+
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                oReturn = oWS.CallMethod(Session("Token").ToString, "PPCC_DownTimeTrans", "PPCC_WSDeleteDtSp", Parms)
+            Next
+
+            Call RebindScrap()
+            Call RebindDownTime()
+
+            BarCodeTextBox.Text = ""
+            BarCodeTextBox.Focus()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Protected Sub JobTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles JobTextBox.TextChanged
+        Try
+            'Label1.Text = SessionID.ToString
+            NotPassNotifyPanel.Visible = False
+
+            Call LoadJob()
+
+            'Dim ItemType As String = ""
+            'ItemType = Left(ItemTextBox.Text, 2)
+            'lblTagType.Text = ItemType
+
+            Dim ListItem As ListItem = JobDropDown.Items.FindByValue(JobTextBox.Text)
+            If ListItem IsNot Nothing Then
+                JobDropDown.SelectedValue = JobTextBox.Text
+
+                NotPassNotifyPanel.Visible = False
+                PassNotifyPanel.Visible = False
+
+                ItemTextBox.Text = Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("Item").ToString
+                ItemDescriptionTextBox.Text = Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("Description").ToString
+                QtyReleasedTextBox.Text = Convert.ToDouble(IIf(Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("QtyReleased").ToString = "", "0.000", Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("QtyReleased").ToString)).ToString("##,##0.000")
+
+                Call GetItemInfo()
+                Call BindOperationAndWc("10")
+                'Call GetItemInfo()
+                Call ShowTagTables()
+            Else
+                JobDropDown.SelectedIndex = 0
+                JobTextBox.Text = ""
+
+                Call GetItemInfo()
+                Call BindOperationAndWc("10")
+                'Call GetItemInfo()
+                Call ShowTagTables()
+
+            End If
+
+            Dim dt_scrapped As New Data.DataTable
+            dt_scrapped = ScrappedGridView.DataSource
+
+            Dim dt_downtime As New Data.DataTable
+            dt_downtime = DTGridView.DataSource
+
+            For Each d_row As Data.DataRow In dt_scrapped.Rows
+                Dim oReturn As Object
+                Dim RowPointer As String = d_row("RowPointer").ToString
+                Dim Parms As String = "<Parameters><Parameter>" & RowPointer & "</Parameter></Parameters>"
+
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                oReturn = oWS.CallMethod(Session("Token").ToString, "PPCC_ScrappedTrans", "PPCC_WSDeleteScrapSp", Parms)
+            Next
+
+            For Each d_row As Data.DataRow In dt_downtime.Rows
+                Dim oReturn As Object
+                Dim RowPointer As String = d_row("RowPointer").ToString
+                Dim Parms As String = "<Parameters><Parameter>" & RowPointer & "</Parameter></Parameters>"
+
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                oReturn = oWS.CallMethod(Session("Token").ToString, "PPCC_DownTimeTrans", "PPCC_WSDeleteDtSp", Parms)
+            Next
+
+            Call RebindScrap()
+            Call RebindDownTime()
+
+            If Left(ItemTextBox.Text, 2) = "TF" Then
+                PrintTagButton.Visible = True
+                HiddenField1.Value = "tag_sm.aspx?j=" & JobTextBox.Text
+            ElseIf Left(ItemTextBox.Text, 2) = "FG" Then
+                PrintTagButton.Visible = True
+                HiddenField1.Value = "tag_fg.aspx?j=" & JobTextBox.Text
+            Else
+                PrintTagButton.Visible = False
+            End If
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub RMTagTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles RMTagTextBox.TextChanged
+        Try
+            NotPassNotifyPanel.Visible = False
+            If Trim(RMTagTextBox.Text) <> "" Then
+                NotPassText.Text = ""
+                NotPassNotifyPanel.Visible = False
+
+                Dim ds As New Data.DataSet
+                Dim PropertyList As String = "TagID, TagQty, Lot, Item, Whse, Loc"
+                Dim tag_qty As Decimal = 0D
+                Dim tag_lot As String = ""
+                Dim tag_item As String = ""
+                Dim tag_loc As String = ""
+                Dim tag_whse As String = ""
+
+                Dim Filter As String = "TagID='" & RMTagTextBox.Text & "' And TagQty > 0 And Stat <> 'O' And Stat <> 'C'" 'Status not out of inventory and cancel
+                oWS = New SLWebServices.DOWebServiceSoapClient
+
+                ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", PropertyList, Filter, "TagID", "", 0)
+
+                If ds.Tables(0).Rows.Count > 0 Then
+                    tag_qty = Convert.ToDecimal(ds.Tables(0).Rows(0)("TagQty"))
+                    tag_lot = ds.Tables(0).Rows(0)("Lot").ToString
+                    tag_item = ds.Tables(0).Rows(0)("Item").ToString
+                    tag_loc = ds.Tables(0).Rows(0)("Loc").ToString
+                    tag_whse = ds.Tables(0).Rows(0)("Whse").ToString
+
+                    For Each row As GridViewRow In BFGridView.Rows
+                        Dim row_qty As Decimal = 0D
+                        Dim row_needed_qty As Decimal = 0D
+                        Dim row_issued_qty As Decimal = 0D
+                        Dim row_lot As String = ""
+                        Dim row_item As String = ""
+                        Dim row_whse As String = ""
+                        Dim row_loc As String = ""
+
+                        Dim qty_textbox As TextBox = DirectCast(row.FindControl("QtyRequiredTextBox"), TextBox)
+                        Dim lot_label As Label = DirectCast(row.FindControl("LotLabel"), Label)
+                        Dim item_label As Label = DirectCast(row.FindControl("ItemLabel"), Label)
+                        Dim check As CheckBox = DirectCast(row.FindControl("SelectCheckBox"), CheckBox)
+                        Dim whse_label As Label = DirectCast(row.FindControl("WhseLabel"), Label)
+                        Dim loc_label As Label = DirectCast(row.FindControl("LocationLabel"), Label)
+                        Dim needed_qty_label As Label = DirectCast(row.FindControl("QtyNeededLabel"), Label)
+                        Dim issued_label As Label = DirectCast(row.FindControl("IssueQtyLabel"), Label)
+
+                        row_qty = Convert.ToDecimal(qty_textbox.Text)
+                        row_lot = lot_label.Text
+                        row_item = item_label.Text
+                        row_whse = whse_label.Text
+                        row_loc = loc_label.Text
+                        row_issued_qty = Convert.ToDecimal(issued_label.Text)
+
+                        If tag_whse = row_whse And tag_loc = row_loc And tag_lot = row_lot And tag_item = row_item Then
+                            Dim drow As Data.DataRow
+
+                            If row_qty - row_issued_qty > 0 Then 'Check over issued qty.
+                                Dim remain_qty As Decimal = row_qty - row_issued_qty
+                                Dim actual_qty As Decimal = 0D
+
+                                If remain_qty >= tag_qty Then
+                                    actual_qty = tag_qty
+                                Else
+                                    actual_qty = remain_qty
+                                End If
+
+                                Dim CanAddTag As String = ""
+                                Dim DataRow() As Data.DataRow = dt_bf_tag.Select("TagID= '" & RMTagTextBox.Text & "'")
+                                If DataRow.Length = 0 Then
+                                    CanAddTag = RMTagTextBox.Text
+                                    drow = dt_bf_tag.NewRow
+                                    drow("TagID") = RMTagTextBox.Text
+                                    drow("Qty") = actual_qty
+                                    dt_bf_tag.Rows.Add(drow)
+                                Else
+                                    CanAddTag = ""
+                                End If
+
+                                If Trim(row.Cells(1).Text) = "" Then
+                                    row.Cells(1).Text = CanAddTag
+                                Else
+                                    row.Cells(1).Text &= IIf(CanAddTag <> "", ", " & CanAddTag, "")
+                                End If
+
+                                If CanAddTag <> "" Then
+                                    issued_label.Text = Convert.ToDouble(Convert.ToDecimal(issued_label.Text) + actual_qty).ToString("##,##0.000")
+                                    row_issued_qty = Convert.ToDecimal(issued_label.Text)
+                                End If
+
+                            End If
+
+                            If row_qty = row_issued_qty Then
+                                check.Checked = True
+                                check.Enabled = False
+                                Call SelectCheckBox_CheckedChanged()
+                            End If
+                        End If
+
+                    Next
+                End If
+
+                RMTagTextBox.Text = ""
+                RMTagTextBox.Focus()
+            End If
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Protected Sub DeleteButton_Click(sender As Object, e As System.EventArgs) Handles DeleteButton.Click
+        Try
+            NotPassNotifyPanel.Visible = False
+            Dim Parms As String = "<Parameters><Parameter>" & TransNumTextBox.Text & "</Parameter></Parameters>"
+
+            Dim res As Object
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            res = oWS.CallMethod(Session("Token").ToString, "PPCC_JobTrans", "PPCC_WSDeleteJobTranSp", Parms)
+
+            If res = "0" Then
+                Response.Redirect("unposted.aspx")
+            End If
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Protected Sub BFGridView_RowDataBound(sender As Object, e As System.Web.UI.WebControls.GridViewRowEventArgs) Handles BFGridView.RowDataBound
+        Try
+            NotPassNotifyPanel.Visible = False
+            If e.Row.RowType = DataControlRowType.DataRow Then
+                Dim SelectCheckBox As CheckBox = DirectCast(e.Row.FindControl("SelectCheckBox"), CheckBox)
+                Dim RequiredQtyTextBox As TextBox = DirectCast(e.Row.FindControl("QtyRequiredTextBox"), TextBox)
+                Dim TagQtyLabel As Label = DirectCast(e.Row.FindControl("IssueQtyLabel"), Label)
+
+                If Convert.ToDecimal(RequiredQtyTextBox.Text) = Convert.ToDecimal(TagQtyLabel.Text) Then
+                    SelectCheckBox.Enabled = False
+                Else
+                    SelectCheckBox.Enabled = True
+                End If
+            End If
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub ResetBfTagButton_Click(sender As Object, e As System.EventArgs) Handles ResetBfTagButton.Click
+        Try
+            NotPassNotifyPanel.Visible = False
+            dt_bf_tag.Rows.Clear()
+            dt_bf_tag = New Data.DataTable
+            With dt_bf_tag
+                .Columns.Add("TagID", Type.GetType("System.String"))
+                .Columns.Add("Qty", Type.GetType("System.Decimal"))
+            End With
+
+            For Each row As GridViewRow In BFGridView.Rows
+                Dim TagQtyLabel As Label = DirectCast(row.FindControl("IssueQtyLabel"), Label)
+                Dim SelectCheckBox As CheckBox = DirectCast(row.FindControl("SelectCheckBox"), CheckBox)
+                SelectCheckBox.Enabled = True
+                SelectCheckBox.Checked = False
+
+                If Convert.ToDecimal(TagQtyLabel.Text) > 0 Then
+                    TagQtyLabel.Text = "0.000"
+                End If
+
+                Call SelectCheckBox_CheckedChanged()
+            Next
+
+            For Each row As GridViewRow In MatchedGridView.Rows
+                Dim SelectCheckBox As CheckBox = DirectCast(row.FindControl("SelectCheckBox"), CheckBox)
+                SelectCheckBox.Checked = False
+            Next
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub MoveToLocationDropDown_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles MoveToLocationDropDown.SelectedIndexChanged
+        Try
+            NotPassNotifyPanel.Visible = False
+            MoveToLocationDescTextBox.Text = MoveToLocation.Tables(0).Rows(MoveToLocationDropDown.SelectedIndex)("LocDescription").ToString
+            Call GetPreassignedLot()
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub AddLotButton_Click(sender As Object, e As System.EventArgs) Handles AddLotButton.Click
+        Try
+            NotPassNotifyPanel.Visible = False
+            If LotDropDown.Enabled = True And Trim(LotTextBox.Text) <> "" Then
+                Dim ListItem As ListItem = LotDropDown.Items.FindByValue(Trim(LotTextBox.Text))
+                If ListItem Is Nothing Then
+                    LotDropDown.Items.Add(New ListItem(Trim(LotTextBox.Text), Trim(LotTextBox.Text)))
+                    LotDropDown.SelectedValue = Trim(LotTextBox.Text)
+                End If
+            End If
+
+            LotTextBox.Text = ""
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub RunTagSeq(ByRef dt As Data.DataTable)
+        dt.Columns.Add("Seq", Type.GetType("System.String"))
+
+        Dim j As Integer = 0
+        Dim last_tag_size As String = ""
+        Dim current_tag_size As String = ""
+        Dim count_b As Object = dt.Compute("Count(TagSize)", "TagSize='B'")
+        Dim count_s As Object = dt.Compute("Count(TagSize)", "TagSize='S'")
+
+        For Each drow As Data.DataRow In dt.Rows
+            j += 1
+            current_tag_size = drow("TagSize")
+            If j = 1 Then
+                last_tag_size = current_tag_size
+            End If
+            If last_tag_size <> current_tag_size Then
+                j = 1
+                last_tag_size = current_tag_size
+            End If
+
+            If current_tag_size = "B" Then
+                drow("Seq") = j.ToString & "/" & count_b.ToString
+            ElseIf current_tag_size = "S" Then
+                drow("Seq") = j.ToString & "/" & count_s.ToString
+            End If
+        Next
+    End Sub
+
+    Sub BindTag()
+        Dim PropertyList As String = ""
+        Dim Filter As String = "RefNum='" & JobDropDown.SelectedValue & "' "
+        Dim ds As New Data.DataSet
+
+        Dim TtagBS As String = ""
+
+        TtagBS = GetTypeTagPrint(JobTextBox.Text)
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagSize, TagID, TagQty, Item, Lot, RefNum, ItemDescription, Whse, Loc, StdPackBox, StdPackBag", Filter, "TagID", "", 0)
+        ds.Tables(0).Columns.Add("StdPack", Type.GetType("System.String"))
+        Call RunTagSeq(ds.Tables(0))
+
+        TagGridView.DataSource = ds.Tables(0)
+        TagGridView.DataBind()
+
+        Dim oTagQty As Object
+        Dim QtySmallTag As Object
+        Dim QtyBigTag As Object
+
+        If ds.Tables(0).Rows.Count = 0 Then
+            oTagQty = "0.000"
+            QtySmallTag = "0.000"
+            QtyBigTag = "0.000"
+        Else
+            oTagQty = ds.Tables(0).Compute("SUM(TagQty)", "TagSize='" & TtagBS & "'")
+            QtySmallTag = ds.Tables(0).Compute("SUM(TagQty)", "TagSize='S'")
+            QtyBigTag = ds.Tables(0).Compute("SUM(TagQty)", "TagSize='B'")
+        End If
+
+        TotalTagQtyTextBox.Text = Convert.ToDouble(oTagQty).ToString("##,##0.000")
+        txtQtyBigTag.Text = Convert.ToDouble(QtyBigTag).ToString("##,##0.000")
+        txtQtySmallTag.Text = Convert.ToDouble(QtySmallTag).ToString("##,##0.000")
+    End Sub
+
+    Function GetTypeTagPrint(sJob As String) As String
+        Dim tagBS As String = ""
+        Dim ds As Data.DataSet
+        ds = New Data.DataSet
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagSize", "RefNum = '" & sJob & "'", "TagID", "", 0)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            tagBS = ds.Tables(0).Rows(0)("TagSize").ToString
+        End If
+
+        Return tagBS
+    End Function
+
+
+
+    Protected Sub TagGridView_DataBound(sender As Object, e As System.EventArgs) Handles TagGridView.DataBound
+        Dim dt As New Data.DataTable
+        dt = TagGridView.DataSource
+        Dim i As Integer = 0
+        For Each row As GridViewRow In TagGridView.Rows
+            If row.Cells(1).Text = "B" Then
+                row.Cells(1).Text = "Big"
+                If dt.Rows(i)("StdPackBox").ToString = "" Or dt.Rows(i)("StdPackBox") Is Nothing Then
+                    row.Cells(4).Text = "0.000"
+                Else
+                    row.Cells(4).Text = Convert.ToDouble(dt.Rows(i)("StdPackBox")).ToString("##,##0.000")
+                End If
+            ElseIf row.Cells(1).Text = "S" Then
+                row.Cells(1).Text = "Small"
+                If dt.Rows(i)("StdPackBag").ToString = "" Or dt.Rows(i)("StdPackBag") Is Nothing Then
+                    row.Cells(4).Text = "0.000"
+                Else
+                    row.Cells(4).Text = Convert.ToDouble(dt.Rows(i)("StdPackBag")).ToString("##,##0.000")
+                End If
+            End If
+            i += 1
+        Next
+    End Sub
+
+    Protected Sub EditTag(ByVal sender As Object, ByVal e As GridViewEditEventArgs)
+        TagGridView.EditIndex = e.NewEditIndex
+        Call BindTag()
+    End Sub
+
+    Protected Sub CancelUpdateTag(ByVal sender As Object, ByVal e As GridViewCancelEditEventArgs)
+        TagGridView.EditIndex = -1
+        Call BindTag()
+    End Sub
+
+    Protected Sub UpdateTag(ByVal sender As Object, ByVal e As GridViewUpdateEventArgs)
+        Dim res As Object
+        Dim TagID As String = DirectCast(TagGridView.Rows(e.RowIndex).FindControl("TagIDLabel"), Label).Text
+        Dim TagQty As String = DirectCast(TagGridView.Rows(e.RowIndex).FindControl("TagQtyTextBox"), TextBox).Text
+        Dim seq() As String = TagGridView.Rows(e.RowIndex).Cells(0).Text.Split("/"c)
+        Dim std_pack As String = TagGridView.Rows(e.RowIndex).Cells(4).Text
+
+        If Not IsNumeric(TagQty) Then
+            TagQty = "0"
+        End If
+
+        Dim oTagQty As Object = "0"
+        Dim dTagGridView As Data.DataTable = TagGridView.DataSource
+
+        Dim TtagBS As String = ""
+
+        TtagBS = GetTypeTagPrint(JobTextBox.Text)
+
+        If dTagGridView IsNot Nothing Then
+            oTagQty = dTagGridView.Compute("SUM(TagQty)", "TagSize='" & TtagBS & "' And TagID <> '" & TagID & "'")
+        End If
+
+        'Edit Last 5 Rows
+        If Convert.ToInt32(seq(0)) = Convert.ToInt32(seq(1)) Or _
+           Convert.ToInt32(seq(0)) = Convert.ToInt32(seq(1)) - 1 Or _
+           Convert.ToInt32(seq(0)) = Convert.ToInt32(seq(1)) - 2 Or _
+           Convert.ToInt32(seq(0)) = Convert.ToInt32(seq(1)) - 3 Or _
+           Convert.ToInt32(seq(0)) = Convert.ToInt32(seq(1)) - 4 Then
+
+            If Convert.ToDouble(TagQty) >= 0 Then
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                Dim Parms As String = ""
+
+                Parms = "<Parameters>"
+                Parms &= "<Parameter>" & TagID & "</Parameter>"
+                Parms &= "<Parameter>" & TagQty & "</Parameter>"
+                Parms &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                Parms &= "</Parameters>"
+
+                res = oWS.CallMethod(Session("Token"), "PPCC_Tags", "PPCC_WSUpdateTagQtySp", Parms)
+                e.Cancel = False
+            Else
+                e.Cancel = True
+            End If
+
+        Else
+            If Convert.ToDouble(TagQty) > Convert.ToDouble(std_pack) Or Convert.ToDouble(TagQty) < 0 Then
+                e.Cancel = True
+            Else
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                Dim Parms As String = ""
+
+                Parms = "<Parameters>"
+                Parms &= "<Parameter>" & TagID & "</Parameter>"
+                Parms &= "<Parameter>" & TagQty & "</Parameter>"
+                Parms &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                Parms &= "</Parameters>"
+
+                res = oWS.CallMethod(Session("Token"), "PPCC_Tags", "PPCC_WSUpdateTagQtySp", Parms)
+                e.Cancel = False
+            End If
+        End If
+
+        TagGridView.EditIndex = -1
+        Call BindTag()
+    End Sub
+
+    Sub LoadScrappedReasonCode()
+        Try
+            EmptyReasonDropDown.Items.Clear()
+            NotPassNotifyPanel.Visible = False
+            Dim Filter As String = "ReasonClass= 'MFG SCRAP'"
+            Dim ds As Data.DataSet
+
+            'Load Scrapped Reason Code
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLReasons", "ReasonCode, Description", Filter, "ReasonCode", "", 0)
+            For Each dRow As Data.DataRow In ds.Tables(0).Rows
+                EmptyReasonDropDown.Items.Add(New ListItem(dRow("ReasonCode") & " - " & dRow("Description"), dRow("ReasonCode")))
+            Next
+            EmptyReasonDropDown.Items.Insert(0, New ListItem("+++++ เลือก Reason Code +++++", ""))
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Sub LoadDownTimeReasonCode()
+        Try
+            DTCodeDropDown.Items.Clear()
+            NotPassNotifyPanel.Visible = False
+            Dim Filter As String = "ReasonClass= 'MFG DOWN TIME'"
+            Dim ds As Data.DataSet
+
+            'Load Down Time Reason Code
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLReasons", "ReasonCode, Description", Filter, "ReasonCode", "", 0)
+            For Each dRow As Data.DataRow In ds.Tables(0).Rows
+                DTCodeDropDown.Items.Add(New ListItem(dRow("ReasonCode") & " - " & dRow("Description"), dRow("ReasonCode")))
+            Next
+            DTCodeDropDown.Items.Insert(0, New ListItem("+++++ เลือก Reason Code +++++", ""))
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+    End Sub
+
+    Protected Sub CompleteQtyTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles CompleteQtyTextBox.TextChanged
+
+        Try
+            NotPassNotifyPanel.Visible = False
+            If Trim(JobTextBox.Text) <> "" Then
+
+                If ValidJobRouteAndJobMatlQtyComplete(False) Then
+                    Dim dt_scrapped As New Data.DataTable
+                    Dim total_scrapped As Object
+                    dt_scrapped = ScrappedGridView.DataSource
+
+                    If dt_scrapped.Rows.Count > 0 Then
+                        total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+                        If IsDBNull(total_scrapped) Then
+                            total_scrapped = "0.000"
+                        End If
+                    Else
+                        total_scrapped = "0.000"
+                    End If
+
+                    'Call DisPlayQtyFraction()
+
+                    Call GetBackflushLots(total_scrapped, False)
+
+                End If
+            End If
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+
+    End Sub
+
+    Protected Sub ScrappedGridView_RowDeleted(sender As Object, e As System.Web.UI.WebControls.GridViewDeletedEventArgs) Handles ScrappedGridView.RowDeleted
+
+    End Sub
+
+    Function ValidJobRouteAndJobMatlQtyComplete(Optional ByVal IsSave As Boolean = False) As Boolean
+        Dim FunctionResult As Boolean = True
+        Dim Parms As String = "<Parameters><Parameter ByRef='Y'>" & String.Empty & "</Parameter>" & _
+            "<Parameter ByRef='Y'>" & String.Empty & "</Parameter>" & _
+            "<Parameter ByRef='Y'>" & String.Empty & "</Parameter></Parameters>"
+
+        Dim res As Object
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        res = oWS.CallMethod(Session("Token").ToString, "SLJobTrans", "UnPostedJobTranPreDispSp", Parms)
+
+        Dim ValidateText As String = "N"
+
+        If res = "0" Then
+            Dim doc As XmlDocument = New XmlDocument()
+            doc.LoadXml(Parms)
+            Dim i As Integer = 1
+            For Each node As XmlNode In doc.DocumentElement
+                If i = 3 Then 'Check Additional Shop Floor Control Validation
+                    If Trim(node.InnerText) <> "" Then
+                        ValidateText = node.InnerText
+                    End If
+                End If
+                i += 1
+            Next
+        Else
+            '--Error
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = "ไม่สามารถตรวจสอบ Shop Floor Parameter ได้ !!!"
+        End If
+
+        'QtyReceived
+        'QtyComplete
+        'QtyScrapped
+
+        Dim ExistsQtyComplete As Double = 0
+        Dim ExistsQtyScrapped As Double = 0
+        Dim ExistsQtyReceived As Double = 0
+        Dim CurrentQtyComplete As Double = 0
+        Dim CurrentQtyScrapped As Double = 0
+
+        If ValidateText = "A" Or ValidateText = "P" Then
+            Dim ds As New Data.DataSet
+
+            Dim Filter As String = "Job='" & JobDropDown.SelectedValue & "'" & " And OperNum=" & OperationDropDown.SelectedValue
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobRoutes", "QtyReceived, QtyComplete, QtyScrapped", Filter, "", "", 0)
+            If ds.Tables(0).Rows.Count > 0 Then
+                ExistsQtyComplete = IIf(Trim(ds.Tables(0).Rows(0)("QtyComplete").ToString) = "" Or IsDBNull(ds.Tables(0).Rows(0)("QtyComplete")), "0", ds.Tables(0).Rows(0)("QtyComplete"))
+                ExistsQtyScrapped = IIf(Trim(ds.Tables(0).Rows(0)("QtyScrapped").ToString) = "" Or IsDBNull(ds.Tables(0).Rows(0)("QtyScrapped")), "0", ds.Tables(0).Rows(0)("QtyScrapped"))
+                ExistsQtyReceived = IIf(Trim(ds.Tables(0).Rows(0)("QtyReceived").ToString) = "" Or IsDBNull(ds.Tables(0).Rows(0)("QtyReceived")), "0", ds.Tables(0).Rows(0)("QtyReceived"))
+            End If
+
+            CurrentQtyComplete = Convert.ToDouble(CompleteQtyTextBox.Text)
+
+            Dim dt_scrapped As New Data.DataTable
+            Dim total_scrapped As Object
+            dt_scrapped = ScrappedGridView.DataSource
+
+            If dt_scrapped.Rows.Count > 0 Then
+                total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+                If IsDBNull(total_scrapped) Then
+                    total_scrapped = "0.000"
+                End If
+            Else
+                total_scrapped = "0.000"
+            End If
+            CurrentQtyScrapped = Convert.ToDouble(total_scrapped)
+
+            Parms = "<Parameters><Parameter>" & JobDropDown.SelectedValue & "</Parameter>" & _
+                "<Parameter>" & SuffixTextBox.Text & "</Parameter>" & _
+                "<Parameter>" & OperationDropDown.SelectedValue & "</Parameter>" & _
+                "<Parameter>" & CompleteQtyTextBox.Text & "</Parameter>" & _
+                "<Parameter>" & String.Empty & "</Parameter>" & _
+                "<Parameter>" & String.Empty & "</Parameter></Parameters>"
+
+            res = oWS.CallMethod(Session("Token").ToString, "SLJobTrans", "JobtranQtyCompleteValidSp", Parms)
+            If res = "0" Then
+                Dim doc As XmlDocument = New XmlDocument()
+                doc.LoadXml(Parms)
+                Dim i As Integer = 1
+                For Each node As XmlNode In doc.DocumentElement
+                    If i = 5 Then 'Check Additional Shop Floor Control Validation
+                        If Trim(node.InnerText) <> "" Then
+                            NotPassNotifyPanel.Visible = True
+                            NotPassText.Text = node.InnerText
+                            FunctionResult = False
+                        End If
+                    End If
+                    i += 1
+                Next
+            Else
+                '--Error
+                FunctionResult = False
+                NotPassNotifyPanel.Visible = True
+                NotPassText.Text = "ไม่สามารถตรวจสอบ Qty. Complete ได้ !!!"
+            End If
+
+
+            'Check Job Issued Material
+            '    If FunctionResult = True Then
+            '        ds = New Data.DataSet
+            '        oWS = New SLWebServices.DOWebServiceSoapClient
+            '        Filter = "Job='" & JobDropDown.SelectedValue & "' And OperNum=" & OperationDropDown.SelectedValue
+            '        ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobmatls", "Units, UM, Item, MatlQtyConv, Backflush", Filter, "", "", 0)
+
+            '        If ds.Tables(0).Rows.Count > 0 Then
+            '            For Each DRow As Data.DataRow In ds.Tables(0).Rows 'Check Job Materials
+            '                Dim Units As String = IIf(DRow("Units").ToString = "" Or IsDBNull(DRow("Units")), "U", DRow("Units").ToString)
+            '                Dim UM As String = IIf(DRow("UM").ToString = "" Or IsDBNull(DRow("UM")), "", DRow("UM").ToString)
+            '                Dim Item As String = IIf(DRow("Item").ToString = "" Or IsDBNull(DRow("Item")), "", DRow("Item").ToString)
+            '                Dim MatlQtyConv As String = IIf(DRow("MatlQtyConv").ToString = "" Or IsDBNull(DRow("MatlQtyConv")), "0", DRow("MatlQtyConv").ToString)
+            '                Dim Backflush As String = IIf(DRow("Backflush").ToString = "" Or IsDBNull(DRow("Backflush")), "0", DRow("Backflush").ToString)
+
+            '                If Backflush = "0" Then
+
+            '                    If Units = "U" Then 'Issue By Units
+            '                        Dim ToBeIssueQty As String = "0"
+            '                        Parms = "<Parameters><Parameter>" & UM & "</Parameter>" & _
+            '                                    "<Parameter>" & Item & "</Parameter>" & _
+            '                                    "<Parameter>" & DBNull.Value & "</Parameter>" & _
+            '                                    "<Parameter>" & DBNull.Value & "</Parameter>" & _
+            '                                    "<Parameter>" & "1" & "</Parameter>" & _
+            '                                    "<Parameter>" & Convert.ToString((ExistsQtyComplete + CurrentQtyComplete) * Convert.ToDouble(MatlQtyConv)) & "</Parameter>" & _
+            '                                    "<Parameter ByRef='Y'>" & DBNull.Value & "</Parameter>" & _
+            '                                    "<Parameter ByRef='Y'>" & DBNull.Value & "</Parameter></Parameters>"
+
+            '                        res = oWS.CallMethod(Session("Token").ToString, "SLUMs", "UMConvQtySp", Parms)
+            '                        If res = "0" Then
+            '                            Dim doc As XmlDocument = New XmlDocument()
+            '                            doc.LoadXml(Parms)
+            '                            Dim i As Integer = 1
+            '                            For Each node As XmlNode In doc.DocumentElement
+            '                                If i = 7 Then
+            '                                    If Trim(node.InnerText) <> "" Then
+            '                                        ToBeIssueQty = node.InnerText
+            '                                    End If
+            '                                End If
+            '                                i += 1
+            '                            Next
+
+            '                            Dim MatlTransQtyIssued As Object = "0"
+            '                            ds = New Data.DataSet
+            '                            oWS = New SLWebServices.DOWebServiceSoapClient
+            '                            Filter = "TransType in ('I', 'W') And RefType = 'J' And RefNum='" & JobDropDown.SelectedValue & "' And RefLineSuf=" & SuffixTextBox.Text & " And RefRelease=" & OperationDropDown.SelectedValue
+            '                            ds = oWS.LoadDataSet(Session("Token").ToString, "SLMatltrans", "Qty", Filter, "", "", 0)
+
+            '                            If ds.Tables(0).Rows.Count > 0 Then
+            '                                MatlTransQtyIssued = ds.Tables(0).Compute("Sum(Qty)", "")
+            '                            Else
+            '                                MatlTransQtyIssued = "0"
+            '                            End If
+
+            '                            If Convert.ToDouble(MatlTransQtyIssued) < Convert.ToDouble(ToBeIssueQty) Then
+
+            '                                FunctionResult = False
+            '                            Else
+            '                                FunctionResult = True
+            '                            End If
+            '                        Else
+            '                            '--Error
+            '                            FunctionResult = False
+            '                            NotPassNotifyPanel.Visible = True
+            '                            NotPassText.Text = "ไม่สามารถตรวจสอบ Qty. Complete ได้ !!!"
+            '                        End If
+
+            '                    ElseIf Units = "L" Then 'Issue By Lots
+
+            '                    End If
+
+
+
+
+            '                End If
+            '            Next
+
+            '        End If 'Check Each Job Materials
+            '    End If 'Check Material Issued
+
+        Else
+            FunctionResult = True
+        End If 'Check Parameter Additional Validation
+
+        If (ValidateText = "P" Or ValidateText = "A") And IsSave Then
+
+            Parms = "<Parameters><Parameter>" & JobDropDown.SelectedValue & "</Parameter>" & _
+                        "<Parameter>" & SuffixTextBox.Text & "</Parameter>" & _
+                        "<Parameter>" & OperationDropDown.SelectedValue & "</Parameter>" & _
+                        "<Parameter>" & CompleteOperTextBox.Text & "</Parameter>" & _
+                        "<Parameter>" & CurrentQtyComplete & "</Parameter>" & _
+                        "<Parameter>" & CurrentQtyScrapped & "</Parameter>" & _
+                        "<Parameter>" & IIf(Trim(MoveToLocationDropDown.SelectedValue.ToString) <> "", "1", "0") & "</Parameter>" & _
+                        "<Parameter>" & String.Empty & "</Parameter></Parameters>"
+
+            res = oWS.CallMethod(Session("Token").ToString, "SLJobTrans", "JobBookingCheckSp", Parms)
+
+            Dim doc As XmlDocument = New XmlDocument()
+            doc.LoadXml(Parms)
+            Dim i As Integer = 1
+            For Each node As XmlNode In doc.DocumentElement
+                If i = 8 Then
+                    If Trim(node.InnerText) <> "" Then
+                        NotPassNotifyPanel.Visible = True
+                        NotPassText.Text = node.InnerText.ToString
+                        FunctionResult = False
+                    End If
+                End If
+                i += 1
+            Next
+        End If
+
+        Return FunctionResult
+    End Function
+
+    Protected Sub MatchedGridView_RowDataBound(sender As Object, e As System.Web.UI.WebControls.GridViewRowEventArgs) Handles MatchedGridView.RowDataBound
+        For Each row As GridViewRow In MatchedGridView.Rows
+            Dim TargetQtyLabel As Label = DirectCast(row.FindControl("TargetQtyLabel"), Label)
+            Dim SelectedQtyLabel As Label = DirectCast(row.FindControl("SelectedQtyLabel"), Label)
+            Dim RemainingQtyLabel As Label = DirectCast(row.FindControl("RemainingQtyLabel"), Label)
+            Dim Remaining As Double = Convert.ToDouble(TargetQtyLabel.Text) - Convert.ToDouble(SelectedQtyLabel.Text)
+
+            If Remaining < 0 Then
+                RemainingQtyLabel.Text = ""
+            Else
+                RemainingQtyLabel.Text = Remaining.ToString("##,##0.000")
+            End If
+        Next
+    End Sub
+
+    Protected Sub QtyRequiredTextBox_TextChanged(ByVal sender As Object, ByVal e As EventArgs)
+        Dim dt_scrapped As New Data.DataTable
+        Dim total_scrapped As Object
+        dt_scrapped = ScrappedGridView.DataSource
+
+        If dt_scrapped.Rows.Count > 0 Then
+            total_scrapped = dt_scrapped.Compute("SUM(QtyConv)", "")
+            If IsDBNull(total_scrapped) Then
+                total_scrapped = "0.000"
+            End If
+        Else
+            total_scrapped = "0.000"
+        End If
+
+        Call GetBackflushLots(total_scrapped, True)
+    End Sub
+
+    Protected Sub TagGridView_RowDataBound(sender As Object, e As System.Web.UI.WebControls.GridViewRowEventArgs) Handles TagGridView.RowDataBound
+
+
+        If e.Row.RowType = DataControlRowType.DataRow Then
+
+            If e.Row.RowState <> DataControlRowState.Edit Then
+                Dim btn As Button = DirectCast(e.Row.Cells(11).Controls(0), Button) 'Edit Command Column
+                Dim seq() As String = e.Row.Cells(0).Text.Split("/"c)
+
+                'If Convert.ToInt32(seq(0)) = Convert.ToInt32(seq(1)) Or _
+                '   Convert.ToInt32(seq(0)) = Convert.ToInt32(seq(1)) - 1 Then
+                '    btn.Enabled = True
+                'Else
+                '    btn.Enabled = False
+                'End If
+
+            End If
+        End If
+    End Sub
+
+    'Protected Sub Button1_Click(sender As Object, e As System.EventArgs) Handles Button1.Click
+    '    Dim BoxTag As Integer = 1
+    '    Dim BagTag As Integer = 1
+    '    Dim TagType As String = ""
+
+    '    'Dim ItemType As String = ""
+    '    'ItemType = Left(ItemTextBox.Text, 2)
+    '    'lblTagType.Text = ItemType
+
+    '    If lblTagType.Text = "TF" Then
+    '        TagType = "SM"
+    '    ElseIf lblTagType.Text = "FG" Then
+    '        TagType = "FG"
+    '    End If
+
+    '    Dim Parms As String = "<Parameters>"
+    '    Parms &= "<Parameter>" & SessionID.ToString & "</Parameter>"
+    '    Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+    '    Parms &= "<Parameter>" & TagType & "</Parameter>"
+    '    Parms &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & JobTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & "0000" & "</Parameter>"
+    '    Parms &= "<Parameter>" & "9999" & "</Parameter>"
+    '    Parms &= "<Parameter>" & ItemTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & ItemTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & "" & "</Parameter>"
+    '    Parms &= "<Parameter>" & "" & "</Parameter>"
+    '    Parms &= "<Parameter>" & BarCodeTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & BarCodeTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & BoxTag & "</Parameter>"
+    '    Parms &= "<Parameter>" & BagTag & "</Parameter>"
+    '    Parms &= "</Parameters>"
+
+    '    Label3.Text = Parms
+    'End Sub
+
+    Function GetQtySmallTag(sItem As String) As Integer
+
+        Dim QtySmallTag As Integer
+        Dim ds As New Data.DataSet
+        Dim Filter As String = ""
+
+        QtySmallTag = 0
+        Filter = "Item = '" & sItem & "'"
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLItems", "itmUf_Item_QtySmallTag", Filter, "", "", 0)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            QtySmallTag = CInt(ds.Tables(0).Rows(0)("itmUf_Item_QtySmallTag").ToString)
+
+        End If
+
+        Return QtySmallTag
+
+    End Function
+
+
+    Sub displayGridFraction()
+        Dim ds As Data.DataSet
+        Dim Filter As String
+        Dim Propertie As String
+
+        ds = New Data.DataSet
+
+        Filter = "JobInclude = '" & JobTextBox.Text & "' and Flag =" & 1
+        Propertie = "Item, Description, Lot, Quantity, u_m, FractionModel, Job, Loc, Whse, TagID"
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_tmp_fractiontags", Propertie, Filter, "Job", "", 0)
+
+        GridFraction.DataSource = ds.Tables(0)
+        GridFraction.DataBind()
+
+        Call Sumfraction()
+        Call GetFractionLoc()
+
+
+    End Sub
+
+    Sub Sumfraction()
+
+        Dim totalSum As Integer
+
+        If GridFraction.Rows.Count > 0 Then
+            For i As Integer = 0 To GridFraction.Rows.Count - 1
+                totalSum += GridFraction.Rows(i).Cells(3).Text
+            Next
+
+            Dim QtyFraction As Integer = 0
+            Dim QtySTag As Integer = 0
+
+            QtyFraction = totalSum
+
+            'QtyFraction = (CInt(CompleteQtyTextBox.Text) + totalSum) Mod GetQtySmallTag(ItemTextBox.Text)
+
+            txtFraction.Text = QtyFraction
+
+        Else
+            txtFraction.Text = 0
+
+        End If
+
+    End Sub
+
+    Sub GetFractionLoc()
+        Dim ds_FractionLoc As Data.DataSet
+        Dim Filter As String
+
+        ds_FractionLoc = New Data.DataSet
+
+        Filter = "Item = '" & ItemTextBox.Text & "' And Whse = '" & WhseTextBox.Text & "' And (Left(Loc, 2) = 'FI' OR Left(Loc, 2) = 'FE')"
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds_FractionLoc = oWS.LoadDataSet(Session("Token").ToString, "SLItemLocs", "Loc", Filter, "Rank", "", 0)
+
+        If ds_FractionLoc.Tables(0).Rows.Count > 0 Then
+            txtFractionLoc.Text = ds_FractionLoc.Tables(0).Rows(0)("Loc").ToString
+        Else
+            txtFractionLoc.Text = ""
+        End If
+
+    End Sub
+
+    Function GetItemFracTypeByItem(sItem As String) As String
+
+        Dim dsCust As Data.DataSet
+        dsCust = New Data.DataSet
+        Dim Filter, sItemFraction As String
+
+        sItemFraction = ""
+        Filter = "Item = '" & sItem & "'"
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        'itmcstuf_itemcust_scraptype --CRP_SNPR, LIV_SNPR, itmcstUf_ItemCust_ScrapType --LIV_PPCC
+        dsCust = oWS.LoadDataSet(Session("Token"), "PPCC_SLItemcusts", "itmcstuf_itemcust_scraptype", Filter, "itmcstuf_itemcust_scraptype desc", "", 0)
+        'dsCust = oWS.LoadDataSet(Session("Token"), "PPCC_SLItemcusts", "itmcstUf_ItemCust_ScrapType", Filter, "itmcstUf_ItemCust_ScrapType desc", "", 0)
+
+        If dsCust.Tables(0).Rows.Count > 0 Then
+            sItemFraction = dsCust.Tables(0).Rows(0)("itmcstuf_itemcust_scraptype").ToString
+            'sItemFraction = dsCust.Tables(0).Rows(0)("itmcstUf_ItemCust_ScrapType").ToString
+        End If
+
+        'MsgBox(sItemFraction)
+
+        Return sItemFraction
+
+    End Function
+
+
+    Function GetLastOprtByJob() As String
+
+        Dim LastOper As String = "10"
+        Dim Filter As String = ""
+        Dim ds As Data.DataSet
+        ds = New Data.DataSet
+        Dim StrBarcode() As String = BarCodeTextBox.Text.Split("-"c)
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        Filter = "Job='" & StrBarcode(0).ToString & "' And Suffix=" & StrBarcode(1).ToString
+        ds = oWS.LoadDataSet(Session("Token"), "SLJobRoutes", "OperNum", Filter, "OperNum desc", "", 0)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            LastOper = ds.Tables(0).Rows(0)("OperNum").ToString
+        Else
+            LastOper = "10"
+        End If
+
+        Return LastOper
+
+    End Function
+
+    'Function GetSumQtyTag() As Object
+
+    '    Dim ds As New Data.DataSet
+    '    'Dim Qty_Reserve As Decimal = 0
+    '    Dim Filter As String = "RefNum='" & JobTextBox.Text & "' and TagSize='S'"
+    '    oWS = New SLWebServices.DOWebServiceSoapClient
+    '    ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagQty", Filter, "", "", 0)
+
+    '    Dim oTagQty As New Object
+    '    If ds.Tables(0).Rows.Count = 0 Then
+    '        oTagQty = "0.000"
+    '    Else
+    '        oTagQty = ds.Tables(0).Compute("SUM(TagQty)", "")
+    '    End If
+
+
+    '    Return oTagQty
+
+    'End Function
+
+    'Protected Sub Button1_Click(sender As Object, e As System.EventArgs) Handles Button1.Click
+    '    Dim Received As Decimal
+    '    Received = CDec(QtyReceived())
+
+    '    If OperationDropDown.SelectedIndex = OperationDropDown.Items.Count - 1 And Received > 0 Then
+
+    '        Dim ds As New Data.DataSet
+    '        Dim Filter As String = "RefNum = '" & JobTextBox.Text & "' and TagQty <>" & 0
+    '        oWS = New SLWebServices.DOWebServiceSoapClient
+    '        ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagID", Filter, "", "", 0)
+
+    '        If ds.Tables(0).Rows.Count > 0 Then
+
+    '            For i As Integer = 0 To ds.Tables(0).Rows.Count - 1
+
+    '                'MsgBox(ds.Tables(0).Rows(i).Item("TagID").ToString)
+
+    '                'Dim Parms As String = ""
+    '                'Dim oInvoke As Object
+
+    '                'Parms = "<Parameters><Parameter>" & ds.Tables(0).Rows(i).Item("TagID").ToString & "</Parameter>"
+    '                'Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+    '                'Parms &= "<Parameter>" & Session("Employee").ToString & "</Parameter></Parameters>"
+
+    '                'oWS = New SLWebServices.DOWebServiceSoapClient
+    '                'oInvoke = oWS.CallMethod(Session("Token").ToString, "PPCC_JobTrans", "PPCC_WSClearDownTimeAndScrappedSp", Parms)
+
+    '            Next
+
+    '        End If
+
+    '    End If
+    'End Sub
+
+End Class

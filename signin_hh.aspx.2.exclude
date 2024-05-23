@@ -1,0 +1,98 @@
+﻿<%@ Page Language="VB" AutoEventWireup="false" CodeFile="signin_hh.aspx.vb" Inherits="signin_hh" %>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head runat="server">
+    <title></title>
+    
+    <meta name="viewport" content="width=480" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="HandheldFriendly" content="true" />
+    <meta name="MobileOptimized" content="width" />
+
+     <style type="text/css">
+        .style1
+        {
+            font-size: small;
+        }
+        .button_green {
+            background-color: #4CAF50; /* Green */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button_blue {
+            background-color: #008CBA; /* Blue */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button_red {
+            background-color: #f44336; /* Red */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+         #form1
+         {
+             font-size: small;
+         }
+    </style>
+
+</head>
+<body>
+    <form id="form1" runat="server">
+    <div>
+        <table>
+            <tr>
+                <td style="text-align:right" class="style1">
+                    User Name:
+                </td>
+                <td>
+                    <asp:TextBox ID="UserNameTextBox" runat="server" Width="200px"></asp:TextBox>
+                </td>
+            </tr>
+            <tr>
+                <td style="text-align:right" class="style1">
+                    Password:
+                </td>
+                <td>
+                    <asp:TextBox ID="PasswordTextBox" runat="server" TextMode="Password" 
+                        Width="200px"></asp:TextBox>
+                </td>
+            </tr>
+            <tr>
+                <td style="text-align:right" class="style1">
+                    Configuration:
+                </td>
+                <td>
+                    <asp:DropDownList ID="ConfigurationDropDown" runat="server" CssClass="style1" 
+                        Width="200px">
+                    </asp:DropDownList>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    &nbsp;</td>
+                <td>
+                    <asp:Button ID="SignInButton" runat="server" Text="Sign in" Width="140px" CssClass="button_green" />
+                </td>
+            </tr>
+        </table>
+    </div>
+    <asp:Literal ID="Literal1" runat="server"></asp:Literal>
+
+
+    </form>
+</body>
+</html>

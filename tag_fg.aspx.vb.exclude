@@ -1,0 +1,2972 @@
+﻿Imports System.Xml
+Imports System.Runtime.Remoting
+Imports System.Runtime.Remoting.Channels
+Imports System.ComponentModel
+Imports System.Text
+Imports System.Drawing.Drawing2D
+Imports System.Drawing
+Imports Spire.Barcode
+Imports System.Drawing.Imaging
+Imports System.IO
+Imports System.Data
+
+
+Partial Class tag_fg
+    Inherits System.Web.UI.Page
+    Dim oWS As SLWebServices.DOWebServiceSoapClient
+    Private Shared _SessionID As Guid
+
+    'Private Shared dt_sum As Data.DataTable
+    'Private Shared ds_fraction As Data.DataSet
+
+    Private Shared Property SessionID() As Guid
+        Get
+            Return _SessionID
+        End Get
+        Set(value As Guid)
+            _SessionID = value
+        End Set
+    End Property
+
+    Private Shared iCheck As Integer
+
+    Sub RunTagSeq(ByRef dt As Data.DataTable)
+
+        dt.Columns.Add("Seq", Type.GetType("System.String"))
+
+        Dim j As Integer = 0
+        Dim last_tag_size As String = ""
+        Dim current_tag_size As String = ""
+        Dim count_b As Object = dt.Compute("Count(TagSize)", "TagSize='B'")
+        Dim count_s As Object = dt.Compute("Count(TagSize)", "TagSize='S'")
+
+        For Each drow As Data.DataRow In dt.Rows
+            j += 1
+            current_tag_size = drow("TagSize")
+            If j = 1 Then
+                last_tag_size = current_tag_size
+            End If
+            If last_tag_size <> current_tag_size Then
+                j = 1
+                last_tag_size = current_tag_size
+            End If
+
+            If current_tag_size = "B" Then
+                drow("Seq") = j.ToString & "/" & count_b.ToString
+            ElseIf current_tag_size = "S" Then
+                drow("Seq") = j.ToString & "/" & count_s.ToString
+            End If
+
+        Next
+    End Sub
+
+    Protected Sub PreviewButton_Click(sender As Object, e As System.EventArgs) Handles PreviewButton.Click
+
+        'If JobStartTextBox.Text = "" And ItemStartTextBox.Text = "" And LotStartTextBox.Text = "" And TagStartTextBox.Text = "" Then
+        '    NotPassNotifyPanel.Visible = True
+        '    NotPassText.Text = "กรุณาใส่ข้อมูล Job, Item, Lot หรือ TagID ก่อน Preview Tag!!!"
+        'Else
+
+        If StartPrintBigTagTextBox.Text = String.Empty And StartPrintSmallTagTextBox.Text = String.Empty Then
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = "กรุณาระบุตำแหน่งแท็กกล่องและแท็กถุง!!!"
+        ElseIf StartPrintBigTagTextBox.Text = String.Empty Then
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = "กรุณาระบุตำแหน่งแท็กกล่อง!!!"
+        ElseIf StartPrintSmallTagTextBox.Text = String.Empty Then
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = "กรุณาระบุตำแหน่งแท็กถุง!!!"
+        Else
+
+            Dim ds As New Data.DataSet
+            NotPassNotifyPanel.Visible = False
+
+            Dim iReturn As Integer
+
+            iReturn = PPCC_CheckExistsLot(LotStartTextBox.Text, JobStartTextBox.Text)
+
+            If iReturn = 0 Then
+
+                Try
+
+                    Dim fractionLoc As String = ""
+                    Dim Item As String = ""
+                    Dim FractionType As String = ""
+                    Dim FractionModel As String = ""
+
+
+                    fractionLoc = GetFractionLoc()
+
+                    Item = GetItemByJob(JobStartTextBox.Text, SuffixStartTextBox.Text)
+                    FractionType = GetItemFracTypeByItem(Item)
+                    FractionModel = GetFractionModelByItem(Item)
+
+
+                    If FractionType = "M" Or FractionType = "I" Then
+
+                        If FractionModel <> "" Then
+
+                            If fractionLoc <> "" Then
+
+                                If SplitRadioButton.Checked And Trim(SplitTagTextBox.Text) <> "" Then
+                                    oWS = New SLWebServices.DOWebServiceSoapClient
+                                    ds = oWS.LoadDataSet(Session("Token"), "PPCC_Tags", "TagID", "TagID='" & SplitTagTextBox.Text & "' And Stat <> 'O' And Stat <> 'N' And TagType='FG'", "", "", 0) 'Status not equal 'Out of Inventory' and 'Cancel'
+
+                                    SplitTagIDFrom.Value = ""
+                                    SplitTagIDTo.Value = ""
+
+                                    If ds.Tables(0).Rows.Count = 0 Then
+                                        NotPassNotifyPanel.Visible = True
+                                        NotPassText.Text = "ไม่พบข้อมูล Tag !!!"
+                                    Else
+                                        Dim retrn As Object
+                                        NotPassNotifyPanel.Visible = False
+                                        NotPassText.Text = ""
+
+                                        Dim Parms As String = ""
+                                        Parms = "<Parameters>"
+                                        Parms &= "<Parameter>" & SplitTagQtyTextBox.Text & "</Parameter>"
+                                        Parms &= "<Parameter>" & SplitTagTextBox.Text & "</Parameter>"
+                                        Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                                        Parms &= "<Parameter ByRef='Y'>" & String.Empty & "</Parameter>"
+                                        Parms &= "<Parameter ByRef='Y'>" & String.Empty & "</Parameter>"
+                                        Parms &= "<Parameter ByRef='Y'>" & String.Empty & "</Parameter>"
+                                        Parms &= "<Parameter>" & "FG" & "</Parameter>"
+                                        Parms &= "</Parameters>"
+
+                                        oWS = New SLWebServices.DOWebServiceSoapClient
+                                        retrn = oWS.CallMethod(Session("Token").ToString, "PPCC_TempTags", "PPCC_WSSplitTagSp", Parms)
+
+                                        If retrn = "0" Then
+                                            Dim doc As XmlDocument = New XmlDocument()
+                                            doc.LoadXml(Parms)
+                                            Dim TaskNumber As String = ""
+                                            Dim i As Integer = 1
+                                            For Each node As XmlNode In doc.DocumentElement
+                                                If i = 5 Then
+                                                    If Trim(node.InnerText) <> "" Then
+                                                        SplitTagIDFrom.Value = node.InnerText
+                                                    End If
+                                                End If
+                                                If i = 6 Then
+                                                    If Trim(node.InnerText) <> "" Then
+                                                        SplitTagIDTo.Value = node.InnerText
+                                                    End If
+                                                End If
+                                                i += 1
+                                            Next
+
+                                            oWS = New SLWebServices.DOWebServiceSoapClient
+                                            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_TempTags", "TagSize, TagID, TagQty, Item, Lot, RefNum, ItemDescription, PrintCount, Whse, Loc", "UserID='" & Session("UserName").ToString & "' And TagType='FG'", "TagID", "", 0)
+
+                                            Call RunTagSeq(ds.Tables(0))
+
+                                            dataTables.DataSource = ds.Tables(0)
+                                            dataTables.DataBind()
+
+                                            MultiView1.ActiveViewIndex = 1
+                                        End If
+                                    End If
+
+                                ElseIf MergeRadioButton.Checked Then
+
+                                    If JobStartTextBox.Text = "" And ItemStartTextBox.Text = "" And LotStartTextBox.Text = "" And TagStartTextBox.Text = "" Then
+                                        NotPassNotifyPanel.Visible = True
+                                        NotPassText.Text = "กรุณาใส่ข้อมูล Job, Item, Lot หรือ TagID ก่อน Preview Tag!!!"
+                                    Else
+                                        oWS = New SLWebServices.DOWebServiceSoapClient
+                                        ds = oWS.LoadDataSet(Session("Token"), "PPCC_Tags", "TagID", "TagID='" & TagStartTextBox.Text & "' And Stat <> 'O' And Stat <> 'N' And TagType='FG'", "", "", 0) 'Status not equal 'Out of Inventory' and 'Cancel'
+
+                                        If ds.Tables(0).Rows.Count = 0 Then
+                                            NotPassNotifyPanel.Visible = True
+                                            NotPassText.Text = "ไม่พบข้อมูล Tag !!!"
+                                        Else
+                                            Dim retrn As Object
+                                            NotPassNotifyPanel.Visible = False
+                                            NotPassText.Text = ""
+
+                                            Dim Parms As String = ""
+                                            Parms = "<Parameters>"
+                                            Parms &= "<Parameter>" & TagStartTextBox.Text & "</Parameter>"
+                                            Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                                            Parms &= "<Parameter>" & "FG" & "</Parameter>"
+                                            Parms &= "</Parameters>"
+
+                                            oWS = New SLWebServices.DOWebServiceSoapClient
+                                            retrn = oWS.CallMethod(Session("Token").ToString, "PPCC_TempTags", "PPCC_WSMergeTagSp", Parms)
+
+                                            MergeTagID.Value = TagStartTextBox.Text
+
+                                            If retrn = "0" Then
+                                                oWS = New SLWebServices.DOWebServiceSoapClient
+                                                ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_TempTags", "TagSize, TagID, TagQty, Item, Lot, RefNum, ItemDescription, PrintCount, Whse, Loc", "UserID='" & Session("UserName").ToString & "' And TagType='FG'", "TagID", "", 0)
+
+                                                Call RunTagSeq(ds.Tables(0))
+
+                                                dataTables.DataSource = ds.Tables(0)
+                                                dataTables.DataBind()
+
+                                                MultiView1.ActiveViewIndex = 1
+                                            End If
+
+                                        End If
+
+                                    End If
+
+
+                                ElseIf NewRadioButton.Checked Or ReprintRadioButton.Checked Then
+
+                                    If JobStartTextBox.Text = "" And ItemStartTextBox.Text = "" And LotStartTextBox.Text = "" And TagStartTextBox.Text = "" Then
+                                        NotPassNotifyPanel.Visible = True
+                                        NotPassText.Text = "กรุณาใส่ข้อมูล Job, Item, Lot หรือ TagID ก่อน Preview Tag!!!"
+                                    Else
+
+                                        'iCheck = 1
+
+                                        If ReprintRadioButton.Checked = True And chkfraction.Checked = True And iCheck = 0 Then
+
+                                            'MsgBox(iCheck)
+
+                                            Dim Parms As String = ""
+                                            Dim oInvoke1 As Object
+
+                                            Parms = "<Parameters><Parameter>" & JobStartTextBox.Text & "</Parameter>"
+                                            Parms &= "<Parameter>" & SuffixStartTextBox.Text & "</Parameter></Parameters>"
+
+                                            oWS = New SLWebServices.DOWebServiceSoapClient
+                                            oInvoke1 = oWS.CallMethod(Session("Token").ToString, "PPCC_tmp_fractiontags", "PPCC_ReprintTagForfractionSp", Parms)
+
+                                            NewRadioButton.Checked = True
+                                            ReprintRadioButton.Checked = False
+
+                                            iCheck = 1
+
+                                        End If
+
+                                        Call PreviewTags()
+
+                                        MultiView1.ActiveViewIndex = 1
+
+                                    End If
+
+                                End If
+
+                            Else
+
+                                NotPassNotifyPanel.Visible = True
+                                NotPassText.Text = "กรุณากำหนด Fraction Location ก่อน Print Tag!!!"
+                            End If
+
+                        Else
+                            NotPassNotifyPanel.Visible = True
+                            NotPassText.Text = "กรุณากำหนด Fraction Model!!!"
+
+                        End If
+
+                    Else 'FractionType = D
+
+                        'If fractionLoc <> "" Then
+
+                        If SplitRadioButton.Checked And Trim(SplitTagTextBox.Text) <> "" Then
+                            oWS = New SLWebServices.DOWebServiceSoapClient
+                            ds = oWS.LoadDataSet(Session("Token"), "PPCC_Tags", "TagID", "TagID='" & SplitTagTextBox.Text & "' And Stat <> 'O' And Stat <> 'N' And TagType='FG'", "", "", 0) 'Status not equal 'Out of Inventory' and 'Cancel'
+
+                            SplitTagIDFrom.Value = ""
+                            SplitTagIDTo.Value = ""
+
+                            If ds.Tables(0).Rows.Count = 0 Then
+                                NotPassNotifyPanel.Visible = True
+                                NotPassText.Text = "ไม่พบข้อมูล Tag !!!"
+                            Else
+                                Dim retrn As Object
+                                NotPassNotifyPanel.Visible = False
+                                NotPassText.Text = ""
+
+                                Dim Parms As String = ""
+                                Parms = "<Parameters>"
+                                Parms &= "<Parameter>" & SplitTagQtyTextBox.Text & "</Parameter>"
+                                Parms &= "<Parameter>" & SplitTagTextBox.Text & "</Parameter>"
+                                Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                                Parms &= "<Parameter ByRef='Y'>" & String.Empty & "</Parameter>"
+                                Parms &= "<Parameter ByRef='Y'>" & String.Empty & "</Parameter>"
+                                Parms &= "<Parameter ByRef='Y'>" & String.Empty & "</Parameter>"
+                                Parms &= "<Parameter>" & "FG" & "</Parameter>"
+                                Parms &= "</Parameters>"
+
+                                oWS = New SLWebServices.DOWebServiceSoapClient
+                                retrn = oWS.CallMethod(Session("Token").ToString, "PPCC_TempTags", "PPCC_WSSplitTagSp", Parms)
+
+                                If retrn = "0" Then
+                                    Dim doc As XmlDocument = New XmlDocument()
+                                    doc.LoadXml(Parms)
+                                    Dim TaskNumber As String = ""
+                                    Dim i As Integer = 1
+                                    For Each node As XmlNode In doc.DocumentElement
+                                        If i = 5 Then
+                                            If Trim(node.InnerText) <> "" Then
+                                                SplitTagIDFrom.Value = node.InnerText
+                                            End If
+                                        End If
+                                        If i = 6 Then
+                                            If Trim(node.InnerText) <> "" Then
+                                                SplitTagIDTo.Value = node.InnerText
+                                            End If
+                                        End If
+                                        i += 1
+                                    Next
+
+                                    oWS = New SLWebServices.DOWebServiceSoapClient
+                                    ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_TempTags", "TagSize, TagID, TagQty, Item, Lot, RefNum, ItemDescription, PrintCount, Whse, Loc", "UserID='" & Session("UserName").ToString & "' And TagType='FG'", "TagID", "", 0)
+
+                                    Call RunTagSeq(ds.Tables(0))
+
+                                    dataTables.DataSource = ds.Tables(0)
+                                    dataTables.DataBind()
+
+                                    MultiView1.ActiveViewIndex = 1
+                                End If
+                            End If
+
+                        ElseIf MergeRadioButton.Checked Then
+
+                            If JobStartTextBox.Text = "" And ItemStartTextBox.Text = "" And LotStartTextBox.Text = "" And TagStartTextBox.Text = "" Then
+                                NotPassNotifyPanel.Visible = True
+                                NotPassText.Text = "กรุณาใส่ข้อมูล Job, Item, Lot หรือ TagID ก่อน Preview Tag!!!"
+                            Else
+
+                                oWS = New SLWebServices.DOWebServiceSoapClient
+                                ds = oWS.LoadDataSet(Session("Token"), "PPCC_Tags", "TagID", "TagID='" & TagStartTextBox.Text & "' And Stat <> 'O' And Stat <> 'N' And TagType='FG'", "", "", 0) 'Status not equal 'Out of Inventory' and 'Cancel'
+
+                                If ds.Tables(0).Rows.Count = 0 Then
+                                    NotPassNotifyPanel.Visible = True
+                                    NotPassText.Text = "ไม่พบข้อมูล Tag !!!"
+                                Else
+                                    Dim retrn As Object
+                                    NotPassNotifyPanel.Visible = False
+                                    NotPassText.Text = ""
+
+                                    Dim Parms As String = ""
+                                    Parms = "<Parameters>"
+                                    Parms &= "<Parameter>" & TagStartTextBox.Text & "</Parameter>"
+                                    Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                                    Parms &= "<Parameter>" & "FG" & "</Parameter>"
+                                    Parms &= "</Parameters>"
+
+                                    oWS = New SLWebServices.DOWebServiceSoapClient
+                                    retrn = oWS.CallMethod(Session("Token").ToString, "PPCC_TempTags", "PPCC_WSMergeTagSp", Parms)
+
+                                    MergeTagID.Value = TagStartTextBox.Text
+
+                                    If retrn = "0" Then
+                                        oWS = New SLWebServices.DOWebServiceSoapClient
+                                        ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_TempTags", "TagSize, TagID, TagQty, Item, Lot, RefNum, ItemDescription, PrintCount, Whse, Loc", "UserID='" & Session("UserName").ToString & "' And TagType='FG'", "TagID", "", 0)
+
+                                        Call RunTagSeq(ds.Tables(0))
+
+                                        dataTables.DataSource = ds.Tables(0)
+                                        dataTables.DataBind()
+
+                                        MultiView1.ActiveViewIndex = 1
+                                    End If
+                                End If
+
+                            End If
+
+
+                        ElseIf NewRadioButton.Checked Or ReprintRadioButton.Checked Then
+
+                            If JobStartTextBox.Text = "" And ItemStartTextBox.Text = "" And LotStartTextBox.Text = "" And TagStartTextBox.Text = "" Then
+                                NotPassNotifyPanel.Visible = True
+                                NotPassText.Text = "กรุณาใส่ข้อมูล Job, Item, Lot หรือ TagID ก่อน Preview Tag!!!"
+                            Else
+
+                                Call PreviewTags()
+                                MultiView1.ActiveViewIndex = 1
+
+                            End If
+
+                        End If
+
+                        '    Else
+
+                        '    NotPassNotifyPanel.Visible = True
+                        '    NotPassText.Text = "กรุณากำหนด Fraction Location ก่อน Print Tag!!!"
+                        'End If
+
+                    End If
+
+
+                Catch ex As Exception
+                NotPassNotifyPanel.Visible = True
+                NotPassText.Text = ex.Message
+            End Try
+
+            Else
+
+                If LotStartTextBox.Text <> String.Empty Then
+
+                    NotPassNotifyPanel.Visible = True
+                    NotPassText.Text = "Lot: " & LotStartTextBox.Text & " Dose Not Exists."
+                    Exit Sub
+
+                ElseIf JobStartTextBox.Text <> String.Empty Then
+
+                    NotPassNotifyPanel.Visible = True
+                    NotPassText.Text = "Job: " & JobStartTextBox.Text & " Dose Not Exists."
+                    Exit Sub
+
+                End If
+
+            End If
+
+
+        End If
+
+        'End If
+
+    End Sub
+
+    Protected Sub Page_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+        If Session("Token") Is Nothing Then
+            Response.Redirect("signin.aspx")
+        Else
+            If Session("Token").ToString = "" Then
+                Response.Redirect("signin.aspx")
+            End If
+        End If
+
+        'Verify Employee
+        If Session("Employee") Is Nothing Then
+            Response.Redirect("default.aspx")
+        Else
+            If Session("Employee").ToString = "" Then
+                Response.Redirect("default.aspx")
+            End If
+        End If
+
+        If Session("CanAccessPrintTag") <> "1" Then Response.Redirect("default.aspx")
+
+        If Not Page.IsPostBack Then
+
+            If NewRadioButton.Checked = True Or ReprintRadioButton.Checked = True Then
+                chkfraction.Visible = True
+            Else
+                chkfraction.Visible = False
+            End If
+
+            SessionID = Guid.NewGuid
+            If Request.QueryString("j") <> "" Then
+
+                Dim oWS As SLWebServices.DOWebServiceSoapClient
+                Dim ds As Data.DataSet
+                Dim PropertyList As String = "RefNum"
+                Dim Filter As String = "RefNum='" & Request.QueryString("j") & "'"
+
+                ds = New Data.DataSet
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", PropertyList, Filter, "", "", 0)
+
+                If ds.Tables(0).Rows.Count > 0 Then
+                    ReprintRadioButton.Checked = True
+                    JobStartTextBox.Text = Request.QueryString("j")
+                    JobEndTextBox.Text = Request.QueryString("j")
+
+                    BagTagCheckBox.Enabled = True
+                    BoxTagCheckBox.Enabled = True
+
+                    BagTagCheckBox.Checked = True
+                    BoxTagCheckBox.Checked = True
+
+                    GridFraction.DataSource = Nothing
+                    GridFraction.DataBind()
+
+                    GridSumFraction.DataSource = Nothing
+                    GridSumFraction.DataBind()
+
+                    Dim strJob As String
+                    strJob = JobStartTextBox.Text
+
+                    JobEndTextBox.Text = strJob
+
+                    Dim Item As String = ""
+                    Dim FractionType As String = ""
+                    'Dim iCheck As Integer
+                    'iCheck = CheckFractionByJob()
+
+                    Call GetItemTagTemplate()
+                    Call CheckNewOrReprint()
+
+                    If chkfraction.Checked = True Then
+                        iCheck = 1
+                    Else
+                        iCheck = 0
+                    End If
+
+                Else
+                    NewRadioButton.Checked = True
+                    JobStartTextBox.Text = Request.QueryString("j")
+                    JobEndTextBox.Text = Request.QueryString("j")
+
+                    BagTagCheckBox.Enabled = True
+                    BoxTagCheckBox.Enabled = True
+
+                    BagTagCheckBox.Checked = True
+                    BoxTagCheckBox.Checked = True
+
+                End If
+
+            End If
+            Call LoadCriteria()
+            'Call BindGrid()
+
+            ' MsgBox(iCheck & "Not Page.IsPostBack")
+
+        Else
+            ' MsgBox(iCheck & "Page.IsPostBack")
+        End If
+    End Sub
+
+    Sub PreviewTags()
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        Dim ds As New Data.DataSet
+        Dim PropList As String = "TagSize, TagID, TagQty, Item, Lot, RefNum, ItemDescription, PrintCount, Whse, Loc"
+
+        If NewRadioButton.Checked Then
+
+            If chkfraction.Checked = True Then
+
+                If GridFraction.Rows.Count > 0 Then
+
+                    For Each Row As GridViewRow In GridFraction.Rows
+
+                        Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+
+                        If SelectCheckBox.Checked = True Then
+
+                            Dim parameter As String = ""
+
+                            'MsgBox(Row.Cells(10).Text)
+                            'MsgBox(Session("UserName").ToString)
+
+                            oWS = New SLWebServices.DOWebServiceSoapClient
+                            parameter = "<Parameters>"
+                            parameter &= "<Parameter>" & Row.Cells(10).Text & "</Parameter>"
+                            parameter &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                            parameter &= "<Parameter>" & JobStartTextBox.Text & "</Parameter>"
+                            parameter &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                            parameter &= "</Parameters>"
+                            oWS.CallMethod(Session("Token").ToString, "ppcc_fraction_bals", "PPCC_InsertTmpFractionSp", parameter)
+
+                        End If
+
+                    Next
+
+                End If
+
+            End If
+
+
+            Dim Parms As String = "<Parameters>"
+            Parms &= "<Parameter>" & SessionID.ToString & "</Parameter>"
+            Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+            Parms &= "<Parameter>" & "FG" & "</Parameter>"
+            Parms &= "<Parameter>" & JobStartTextBox.Text & "</Parameter>"
+            Parms &= "<Parameter>" & JobEndTextBox.Text & "</Parameter>"
+            Parms &= "<Parameter>" & SuffixStartTextBox.Text & "</Parameter>"
+            Parms &= "<Parameter>" & SuffixEndTextBox.Text & "</Parameter>"
+            Parms &= "<Parameter>" & ItemStartTextBox.Text & "</Parameter>"
+            Parms &= "<Parameter>" & ItemEndTextBox.Text & "</Parameter>"
+            Parms &= "<Parameter>" & LotStartTextBox.Text & "</Parameter>"
+            Parms &= "<Parameter>" & LotEndTextBox.Text & "</Parameter>"
+            Parms &= "<Parameter>" & TagStartTextBox.Text & "</Parameter>"
+            Parms &= "<Parameter>" & TagEndTextBox.Text & "</Parameter>"
+            Parms &= "<Parameter>" & IIf(BoxTagCheckBox.Checked, "1", "0") & "</Parameter>"
+            Parms &= "<Parameter>" & IIf(BagTagCheckBox.Checked, "1", "0") & "</Parameter>"
+            Parms &= "</Parameters>"
+
+            'MsgBox(Parms)
+            'Label1.Text = Parms
+
+            oWS.CallMethod(Session("Token").ToString, "PPCC_TempTags", "PPCC_PreviewTagSp", Parms)
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_TempTags", "TagSize, TagID, TagQty, Item, Lot, RefNum, ItemDescription, PrintCount, Whse, Loc", "UserID='" & Session("UserName").ToString & "' And TagType='FG'", "TagID", "", 0)
+
+        End If
+
+        If ReprintRadioButton.Checked Then
+
+            Dim StrFilterTagSize As String = ""
+
+            If BoxTagCheckBox.Checked And BagTagCheckBox.Checked Then
+                StrFilterTagSize = " And TagSize In  ('S', 'B') "
+            ElseIf Not BoxTagCheckBox.Checked And Not BagTagCheckBox.Checked Then
+                StrFilterTagSize = " And TagSize <> 'S' And TagSize <> 'B' "
+            ElseIf BoxTagCheckBox.Checked And Not BagTagCheckBox.Checked Then
+                StrFilterTagSize = " And TagSize = 'B' "
+            ElseIf Not BoxTagCheckBox.Checked And BagTagCheckBox.Checked Then
+                StrFilterTagSize = " And TagSize = 'S' "
+            End If
+
+            'Dim Filter As String = "TagType='FG'" & StrFilterTagSize & " And TagQty > 0 "
+
+            Dim Filter As String = "TagType='FG'" & StrFilterTagSize & ""
+
+            If JobStartTextBox.Text <> "" And JobEndTextBox.Text <> "" Then
+                Filter &= " And RefNum Between '" & JobStartTextBox.Text & "' And '" & JobEndTextBox.Text & "'"
+            End If
+            If ItemStartTextBox.Text <> "" And ItemEndTextBox.Text <> "" Then
+                Filter &= " And Item Between '" & ItemStartTextBox.Text & "' And '" & ItemEndTextBox.Text & "'"
+            End If
+            If LotStartTextBox.Text <> "" And LotEndTextBox.Text <> "" Then
+                Filter &= " And Lot Between '" & LotStartTextBox.Text & "' And '" & LotEndTextBox.Text & "'"
+            End If
+            If TagStartTextBox.Text <> "" And TagEndTextBox.Text <> "" Then
+                Filter &= " And TagID Between '" & TagStartTextBox.Text & "' And '" & TagEndTextBox.Text & "'"
+            End If
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", PropList, Filter, "TagID", "", 0)
+
+        End If
+
+        If SplitRadioButton.Checked Then
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", PropList, "TagID Between '" & SplitTagIDFrom.Value & "' And '" & SplitTagIDTo.Value & "'", "TagID", "", 0)
+        End If
+
+        If MergeRadioButton.Checked Then
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", PropList, "TagID = '" & MergeTagID.Value & "'", "TagID", "", 0)
+        End If
+
+        Call RunTagSeq(ds.Tables(0))
+
+        dataTables.DataSource = ds.Tables(0)
+        dataTables.DataBind()
+    End Sub
+
+    Sub LoadCriteria()
+        Dim ds As Data.DataSet
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = New Data.DataSet
+
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobs", "Job", "Stat = 'R' And Type = 'J'", "Job", "", 0)
+        For Each dRow As Data.DataRow In ds.Tables(0).Rows
+            JobStartDropDown.Items.Add(New ListItem(dRow("Job"), dRow("Job")))
+            JobEndDropDown.Items.Add(New ListItem(dRow("Job"), dRow("Job")))
+        Next
+
+        JobStartDropDown.Items.Insert(0, New ListItem("", ""))
+        JobEndDropDown.Items.Insert(0, New ListItem("", ""))
+
+        Dim FilterFG As String = " Left(Item, 2) = 'FG' "
+
+        ds = New Data.DataSet
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLItems", "Item", FilterFG, "Item", "", 0)
+        For Each dRow As Data.DataRow In ds.Tables(0).Rows
+            ItemStartDropDown.Items.Add(New ListItem(dRow("Item"), dRow("Item")))
+            ItemEndDropDown.Items.Add(New ListItem(dRow("Item"), dRow("Item")))
+        Next
+
+        ItemStartDropDown.Items.Insert(0, New ListItem("", ""))
+        ItemEndDropDown.Items.Insert(0, New ListItem("", ""))
+
+        'ds = New Data.DataSet
+        'ds = oWS.LoadDataSet(Session("Token").ToString, "SLPreassignedLots", "Lot", FilterFG, "Lot", "", 0)
+        'For Each dRow As Data.DataRow In ds.Tables(0).Rows
+        '    LotStartDropDown.Items.Add(New ListItem(dRow("Lot"), dRow("Lot")))
+        '    LotEndDropDown.Items.Add(New ListItem(dRow("Lot"), dRow("Lot")))
+        'Next
+
+        'LotStartDropDown.Items.Insert(0, New ListItem("", ""))
+        'LotEndDropDown.Items.Insert(0, New ListItem("", ""))
+
+        'ds = New Data.DataSet
+        'ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagID", FilterFG, "TagID", "", 0)
+        'For Each dRow As Data.DataRow In ds.Tables(0).Rows
+        '    TagIdStartDropDown.Items.Add(New ListItem(dRow("TagID"), dRow("TagID")))
+        '    TagIdEndDropDown.Items.Add(New ListItem(dRow("TagID"), dRow("TagID")))
+        'Next
+
+        'TagIdStartDropDown.Items.Insert(0, New ListItem("", ""))
+        'TagIdEndDropDown.Items.Insert(0, New ListItem("", ""))
+
+
+    End Sub
+
+    Protected Sub BackButton_Click(sender As Object, e As System.EventArgs) Handles BackButton.Click
+
+        MultiView1.ActiveViewIndex = 0
+
+        NotPassNotifyPanel.Visible = False
+        'NotPassText.Text = "ไม่พบข้อมูล Tag !!!"
+
+        Dim Item As String = ""
+        Dim FractionType As String = ""
+
+        Item = GetItemByJob(JobStartTextBox.Text, SuffixStartTextBox.Text)
+        FractionType = GetItemFracTypeByItem(Item)
+
+        Dim ds As New Data.DataSet
+        Dim Filter As String = ""
+
+
+        If FractionType = "M" Or FractionType = "I" Then
+
+            'Filter = "Job='" & JobStartTextBox.Text & "' And Suffix=" & SuffixStartTextBox.Text
+            Filter = "RefNum='" & JobStartTextBox.Text & "' And RefLine=" & SuffixStartTextBox.Text
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagID", Filter, "", "", 0)
+
+            If ds.Tables(0).Rows.Count = 0 Then
+                chkfraction.Checked = False
+
+                GridFraction.DataSource = Nothing
+                GridFraction.DataBind()
+
+                GridSumFraction.DataSource = Nothing
+                GridSumFraction.DataBind()
+            Else
+
+                Call CheckNewOrReprint()
+
+            End If
+
+        Else
+
+        Call CheckNewOrReprint()
+
+        End If
+
+        ' chkfraction.Checked = False
+
+        ' Call CheckNewOrReprint()
+
+
+        'GridFraction.DataSource = Nothing
+        'GridFraction.DataBind()
+
+        'GridSumFraction.DataSource = Nothing
+        'GridSumFraction.DataBind()
+
+    End Sub
+
+    Private Shared RptTagList As Data.DataTable
+
+    Function TaskManRunning(ByVal TaskNumber As String) As Boolean
+        Dim StartDate As String = ""
+        Dim CompletionDate As String = ""
+        Dim ds As New Data.DataSet
+        Dim i As Integer = 0
+        oWS = New SLWebServices.DOWebServiceSoapClient
+
+        ds = oWS.LoadDataSet(Session("Token").ToString, "BGTaskHistories", "TaskNumber, SubmissionDate, StartDate, CompletionDate", "TaskNumber=" & TaskNumber, "", "", 0)
+        StartDate = ds.Tables(0).Rows(0)("StartDate").ToString
+
+        Dim TaskInterval1 As String = System.Configuration.ConfigurationManager.AppSettings("TaskInterval1")
+        Dim TaskInterval2 As String = System.Configuration.ConfigurationManager.AppSettings("TaskInterval2")
+
+        If TaskInterval1 Is Nothing Then
+            TaskInterval1 = "240" 'Max 2 Minutes
+        End If
+
+        If TaskInterval2 Is Nothing Then
+            TaskInterval2 = "600" 'Max 5 Minutes
+        End If
+
+        While StartDate = "" And i < Convert.ToInt32(TaskInterval1)
+            ds = New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "BGTaskHistories", "StartDate", "TaskNumber=" & TaskNumber, "", "", 0)
+            StartDate = ds.Tables(0).Rows(0)("StartDate").ToString
+            System.Threading.Thread.Sleep(500)
+            i += 1
+        End While
+
+        If StartDate <> "" Then
+            i = 0
+            ds = New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "BGTaskHistories", "CompletionDate", "TaskNumber=" & TaskNumber, "", "", 0)
+
+            While CompletionDate = "" And i < Convert.ToInt32(TaskInterval2)
+                ds = New Data.DataSet
+                ds = oWS.LoadDataSet(Session("Token").ToString, "BGTaskHistories", "CompletionDate", "TaskNumber=" & TaskNumber, "", "", 0)
+                CompletionDate = ds.Tables(0).Rows(0)("CompletionDate").ToString
+                System.Threading.Thread.Sleep(500)
+                i += 1
+            End While
+        End If
+
+
+        Dim FileName As String = ""
+        If CompletionDate <> "" Then
+            Dim OutputPath As String = ""
+
+            ds = New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "BGTaskHistories", "ReportOutputPath", "TaskNumber=" & TaskNumber, "", "", 0)
+            OutputPath = ds.Tables(0).Rows(0)("ReportOutputPath").ToString
+            FileName = OutputPath.Substring(OutputPath.LastIndexOf("\"c) + 1)
+        End If
+
+        If FileName <> "" Then
+            Dim url As String = System.Configuration.ConfigurationManager.AppSettings("ReportAddress")
+            Dim row As Data.DataRow
+            row = RptTagList.NewRow
+            row("FileName") = FileName
+            row("URL") = url & Session("UserName").ToString & "/" & FileName
+            RptTagList.Rows.Add(row)
+        End If
+
+        LinkReportGridView.DataSource = RptTagList
+        LinkReportGridView.DataBind()
+
+        If LinkReportGridView.Rows.Count > 0 Then
+            MultiView1.ActiveViewIndex = 2
+        Else
+
+        End If
+        Return True
+    End Function
+
+    Protected Sub PrintButton_Click(sender As Object, e As System.EventArgs) Handles PrintButton.Click
+        Try
+            NotPassNotifyPanel.Visible = False
+
+            RptTagList = New Data.DataTable
+            RptTagList.Columns.Add("FileName", Type.GetType("System.String"))
+            RptTagList.Columns.Add("URL", Type.GetType("System.String"))
+
+            'Check Reprint
+            Dim SelectedReprint As Integer = 0
+            Dim ReprintOK As Boolean = True
+            If ReprintRadioButton.Checked Then
+                For Each Row As GridViewRow In dataTables.Rows
+                    Dim CheckSelect As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+                    If CheckSelect.Checked Then
+                        SelectedReprint += 1
+                    End If
+                Next
+
+                If SelectedReprint > 40 Then
+                    ReprintOK = False
+                    NotPassNotifyPanel.Visible = True
+                    NotPassText.Text = "Repint Tag ได้ไม่เกินครั้งละ 40 ใบ !!!"
+                    MultiView1.ActiveViewIndex = 0
+
+                    Exit Sub
+                End If
+            End If
+
+            Dim Parms As String = ""
+            If NewRadioButton.Checked Or ReprintRadioButton.Checked Or SplitRadioButton.Checked Then
+
+                If NewRadioButton.Checked Then
+
+                    If chkfraction.Checked = True Then
+
+                        If GridFraction.Rows.Count > 0 Then
+
+                            For Each Row As GridViewRow In GridFraction.Rows
+
+                                Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+
+                                If SelectCheckBox.Checked = True Then
+
+                                    Dim ds_tmp_fraction As Data.DataSet
+                                    ds_tmp_fraction = New Data.DataSet
+
+                                    Dim filter_tmp As String = ""
+                                    Dim strJob As String = ""
+
+                                    filter_tmp = "TagID='" & Row.Cells(10).Text & "' and JobInclude <> '" & JobStartTextBox.Text & "' and flag = 1"
+
+                                    oWS = New SLWebServices.DOWebServiceSoapClient
+                                    ds_tmp_fraction = oWS.LoadDataSet(Session("Token"), "PPCC_tmp_fractiontags", "JobInclude", filter_tmp, "", "", 0)
+
+                                    If ds_tmp_fraction.Tables(0).Rows.Count > 0 Then
+                                        strJob = ds_tmp_fraction.Tables(0).Rows(0)("JobInclude").ToString
+
+                                        NotPassNotifyPanel.Visible = True
+                                        NotPassText.Text = "เศษถูกเลือกด้วย Job :" & strJob & " แล้ว ไม่สามารถเลือกซ้ำได้!!!"
+
+                                        Exit Sub
+
+                                    End If
+
+                                End If
+
+                            Next
+
+                        End If
+
+
+                    End If
+
+                End If
+
+
+                '--------Update Flag in PPCC_fraction_bal, PPCC_tmp_fractiontag---------'
+                Dim Parameter As String = ""
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                Parameter = "<Parameters><Parameter>" & JobStartTextBox.Text & "</Parameter></Parameters>"
+
+                oWS.CallMethod(Session("Token").ToString, "ppcc_fraction_bals", "PPCC_BookingFractionPrintTagSp", Parameter)
+                '--------End Update Flag in PPCC_fraction_bal, PPCC_tmp_fractiontag---------'
+
+
+                If NewRadioButton.Checked Or ReprintRadioButton.Checked Then
+                    '------------Insert Tag--------------'
+                    Dim parm_inserTag As String = ""
+                    oWS = New SLWebServices.DOWebServiceSoapClient
+                    parm_inserTag = "<Parameters>"
+                    parm_inserTag &= "<Parameter>" & JobStartTextBox.Text & "</Parameter>"
+                    parm_inserTag &= "<Parameter>" & SuffixStartTextBox.Text & "</Parameter>"
+                    parm_inserTag &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                    parm_inserTag &= "<Parameter>" & "C" & "</Parameter>"
+                    parm_inserTag &= "<Parameter>" & "J" & "</Parameter>"
+                    parm_inserTag &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                    parm_inserTag &= "<Parameter>" & iCheck & "</Parameter>"
+                    parm_inserTag &= "</Parameters>"
+
+                    oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_InsertTag_2Sp", parm_inserTag)
+                    '------------End Insert Tag --------------'
+
+                    For Each row As GridViewRow In dataTables.Rows
+                        Dim CheckBoxRow As CheckBox = TryCast(row.Cells(0).FindControl("SelectCheckBox"), CheckBox)
+                        If CheckBoxRow.Checked Then
+
+                            Dim Settings As New BarcodeSettings()
+                            BarcodeSettings.ApplyKey("GAL1B-04IQ0-V84NH-U4689-08YM3")
+                            Dim Data As String = row.Cells(3).Text
+                            Dim Type As String = "Code128"
+
+                            Settings.Data2D = Data
+                            Settings.Data = row.Cells(3).Text
+
+                            Type = "DataMatrix"
+                            Settings.Type = CType(System.Enum.Parse(GetType(BarCodeType), Type), BarCodeType)
+
+                            Settings.ShowText = False
+                            Settings.BottomMargin = 0
+                            Settings.TopMargin = 0
+                            Settings.LeftMargin = 0
+                            Settings.RightMargin = 0
+                            Settings.ResolutionType = ResolutionType.Printer
+                            Settings.AutoResize = True
+
+                            Dim Generator As New BarCodeGenerator(Settings)
+                            Dim Barcode As Image = Generator.GenerateImage
+
+                            Dim m As New MemoryStream()
+                            Barcode.Save(m, ImageFormat.Png)
+
+                            Dim binaryArray As Byte()
+                            binaryArray = m.ToArray
+
+                            oWS = New SLWebServices.DOWebServiceSoapClient
+                            Parms = "<Parameters>"
+                            Parms &= "<Parameter>" & row.Cells(3).Text & "</Parameter>"
+                            Parms &= "<Parameter>" & Convert.ToBase64String(binaryArray) & "</Parameter>"
+                            Parms &= "</Parameters>"
+                            oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_updateBarcodeTagSp", Parms)
+                        End If
+                    Next
+
+                ElseIf SplitRadioButton.Checked Then
+
+                    For Each row As GridViewRow In dataTables.Rows
+                        Dim CheckBoxRow As CheckBox = TryCast(row.Cells(0).FindControl("SelectCheckBox"), CheckBox)
+                        If CheckBoxRow.Checked Then
+
+                            Dim Settings As New BarcodeSettings()
+                            BarcodeSettings.ApplyKey("GAL1B-04IQ0-V84NH-U4689-08YM3")
+                            Dim Data As String = row.Cells(3).Text
+                            Dim Type As String = "Code128"
+
+                            Settings.Data2D = Data
+                            Settings.Data = row.Cells(3).Text
+
+                            Type = "DataMatrix"
+                            Settings.Type = CType(System.Enum.Parse(GetType(BarCodeType), Type), BarCodeType)
+
+                            Settings.ShowText = False
+                            Settings.BottomMargin = 0
+                            Settings.TopMargin = 0
+                            Settings.LeftMargin = 0
+                            Settings.RightMargin = 0
+                            Settings.ResolutionType = ResolutionType.Printer
+                            Settings.AutoResize = True
+
+                            Dim Generator As New BarCodeGenerator(Settings)
+                            Dim Barcode As Image = Generator.GenerateImage
+
+                            Dim m As New MemoryStream()
+                            Barcode.Save(m, ImageFormat.Png)
+
+                            Dim binaryArray As Byte()
+                            binaryArray = m.ToArray
+
+                            oWS = New SLWebServices.DOWebServiceSoapClient
+                            Parms = "<Parameters>"
+                            Parms &= "<Parameter>" & row.Cells(3).Text & "</Parameter>"
+                            Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                            Parms &= "<Parameter>" & "C" & "</Parameter>"
+                            Parms &= "<Parameter>" & "J" & "</Parameter>"
+                            Parms &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                            Parms &= "<Parameter>" & Convert.ToBase64String(binaryArray) & "</Parameter>"
+                            Parms &= "<Parameter>" & iCheck & "</Parameter>"
+                            Parms &= "</Parameters>"
+                            oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_InsertTagSp", Parms)
+                        End If
+                    Next
+
+                End If
+
+                'For Each row As GridViewRow In dataTables.Rows
+                '    Dim CheckBoxRow As CheckBox = TryCast(row.Cells(0).FindControl("SelectCheckBox"), CheckBox)
+                '    If CheckBoxRow.Checked Then
+
+                '        Dim Settings As New BarcodeSettings()
+                '        BarcodeSettings.ApplyKey("GAL1B-04IQ0-V84NH-U4689-08YM3")
+                '        Dim Data As String = row.Cells(3).Text
+                '        Dim Type As String = "Code128"
+
+                '        Settings.Data2D = Data
+                '        Settings.Data = row.Cells(3).Text
+
+                '        Type = "DataMatrix"
+                '        Settings.Type = CType(System.Enum.Parse(GetType(BarCodeType), Type), BarCodeType)
+
+                '        Settings.ShowText = False
+                '        Settings.BottomMargin = 0
+                '        Settings.TopMargin = 0
+                '        Settings.LeftMargin = 0
+                '        Settings.RightMargin = 0
+                '        Settings.ResolutionType = ResolutionType.Printer
+                '        Settings.AutoResize = True
+
+                '        Dim Generator As New BarCodeGenerator(Settings)
+                '        Dim Barcode As Image = Generator.GenerateImage
+
+                '        Dim m As New MemoryStream()
+                '        Barcode.Save(m, ImageFormat.Png)
+
+                '        Dim binaryArray As Byte()
+                '        binaryArray = m.ToArray
+
+                '        oWS = New SLWebServices.DOWebServiceSoapClient
+                '        Parms = "<Parameters>"
+                '        Parms &= "<Parameter>" & row.Cells(3).Text & "</Parameter>"
+                '        Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                '        Parms &= "<Parameter>" & "C" & "</Parameter>"
+                '        Parms &= "<Parameter>" & "J" & "</Parameter>"
+                '        Parms &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                '        Parms &= "<Parameter>" & Convert.ToBase64String(binaryArray) & "</Parameter>"
+                '        Parms &= "<Parameter>" & iCheck & "</Parameter>"
+                '        Parms &= "</Parameters>"
+                '        oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_InsertTagSp", Parms)
+                '    End If
+                'Next
+
+            End If
+
+            Dim TaskParms As String = ""
+            If NewRadioButton.Checked Then
+                TaskParms = JobStartTextBox.Text & "," & JobEndTextBox.Text & "," & SuffixStartTextBox.Text & "," & SuffixEndTextBox.Text & "," & ItemStartTextBox.Text & "," & ItemEndTextBox.Text & "," & LotStartTextBox.Text & "," & LotEndTextBox.Text & "," & TagStartTextBox.Text & "," & TagEndTextBox.Text & ",FG,," & StartPrintBigTagTextBox.Text & "," & StartPrintSmallTagTextBox.Text
+            End If
+
+            If ReprintRadioButton.Checked Then
+                Dim TagList As String = ""
+                Dim Check As CheckBox
+
+                For Each row As GridViewRow In dataTables.Rows
+                    Check = DirectCast(row.FindControl("SelectCheckBox"), CheckBox)
+                    If Check.Checked Then
+                        TagList &= row.Cells(3).Text & "|"
+                    End If
+                Next
+
+                If Trim(TagList) <> "" Then
+                    TagList = Left(TagList, TagList.Length - 1)
+                End If
+
+                TaskParms = JobStartTextBox.Text & "," & JobEndTextBox.Text & "," & SuffixStartTextBox.Text & "," & SuffixEndTextBox.Text & "," & ItemStartTextBox.Text & "," & ItemEndTextBox.Text & "," & LotStartTextBox.Text & "," & LotEndTextBox.Text & "," & TagStartTextBox.Text & "," & TagEndTextBox.Text & ",FG," & TagList & "," & StartPrintBigTagTextBox.Text & "," & StartPrintSmallTagTextBox.Text
+            End If
+
+            'Create Split Transactions
+            If SplitRadioButton.Checked Then
+                TaskParms = ",,0000,9999,,,,," & SplitTagIDFrom.Value & "," & SplitTagIDTo.Value & ",FG,," & StartPrintBigTagTextBox.Text & "," & StartPrintSmallTagTextBox.Text
+                Dim ret As Object
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                Parms = "<Parameters>"
+                Parms &= "<Parameter>" & SplitTagTextBox.Text & "</Parameter>"
+                Parms &= "<Parameter>" & SplitTagIDFrom.Value & "</Parameter>"
+                Parms &= "<Parameter>" & SplitTagIDTo.Value & "</Parameter>"
+                Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                Parms &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                Parms &= "</Parameters>"
+
+                ret = oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_WSCreateSplitTagTransactionSp", Parms)
+                If ret <> "0" Then
+                    NotPassNotifyPanel.Visible = True
+                    NotPassText.Text = "เกิดข้อผิดพลาดขณะสร้าง Tag Transactions."
+                End If
+            End If
+
+            'Create Merge Transactions
+            If MergeRadioButton.Checked Then
+                Dim TagList As String = ""
+                Dim Check As CheckBox
+
+                For Each row As GridViewRow In dataTables.Rows
+                    Check = DirectCast(row.FindControl("SelectCheckBox"), CheckBox)
+                    If Check.Checked Then
+                        TagList &= row.Cells(3).Text & ","
+                    End If
+                Next
+
+                If Trim(TagList) <> "" Then
+                    TagList = Left(TagList, TagList.Length - 1)
+                End If
+
+                TaskParms = ",,0000,9999,,,,," & MergeTagID.Value & "," & MergeTagID.Value & ",FG,," & StartPrintBigTagTextBox.Text & "," & StartPrintSmallTagTextBox.Text
+                Dim ret As Object
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                Parms = "<Parameters>"
+                Parms &= "<Parameter>" & MergeTagID.Value & "</Parameter>"
+                Parms &= "<Parameter>" & TagList & "</Parameter>"
+                Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                Parms &= "<Parameter>" & Session("Employee").ToString & "</Parameter>"
+                Parms &= "</Parameters>"
+
+                ret = oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_WSCreateMergeTagTransactionSp", Parms)
+                If ret <> "0" Then
+                    NotPassNotifyPanel.Visible = True
+                    NotPassText.Text = "เกิดข้อผิดพลาดขณะสร้าง Tag Transactions."
+                End If
+            End If
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Dim ds As New Data.DataSet
+            Dim StrFilterTagSize As String = ""
+            If BoxTagCheckBox.Checked And BagTagCheckBox.Checked Then
+                StrFilterTagSize = " And TagSize In  ('S', 'B') "
+            ElseIf Not BoxTagCheckBox.Checked And Not BagTagCheckBox.Checked Then
+                StrFilterTagSize = " And TagSize <> 'S' And TagSize <> 'B' "
+            ElseIf BoxTagCheckBox.Checked And Not BagTagCheckBox.Checked Then
+                StrFilterTagSize = " And TagSize = 'B' "
+            ElseIf Not BoxTagCheckBox.Checked And BagTagCheckBox.Checked Then
+                StrFilterTagSize = " And TagSize = 'S' "
+            End If
+
+            Dim Filter As String = "TagType='FG'" & StrFilterTagSize
+            If JobStartTextBox.Text <> "" And JobEndTextBox.Text <> "" Then
+                Filter &= " And RefNum Between '" & JobStartTextBox.Text & "' And '" & JobEndTextBox.Text & "'"
+            End If
+            If ItemStartTextBox.Text <> "" And ItemEndTextBox.Text <> "" Then
+                Filter &= " And Item Between '" & ItemStartTextBox.Text & "' And '" & ItemEndTextBox.Text & "'"
+            End If
+            If LotStartTextBox.Text <> "" And LotEndTextBox.Text <> "" Then
+                Filter &= " And Lot Between '" & LotStartTextBox.Text & "' And '" & LotEndTextBox.Text & "'"
+            End If
+            If TagStartTextBox.Text <> "" And TagEndTextBox.Text <> "" Then
+                Filter &= " And TagID Between '" & TagStartTextBox.Text & "' And '" & TagEndTextBox.Text & "'"
+            End If
+
+            Dim PropList As String = "ItemBigTagTemplate, ItemSmallTagTemplate, TagSize"
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", PropList, Filter, "", "", 0)
+
+            If NewRadioButton.Checked Or ReprintRadioButton.Checked Then
+                ds = New Data.DataSet
+                ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", PropList, Filter, "", "", 0)
+            ElseIf SplitRadioButton.Checked Then
+                ds = New Data.DataSet
+                Dim TagList As String = ""
+
+                For Each row As GridViewRow In dataTables.Rows
+                    TagList &= "'" & row.Cells(3).Text & "',"
+                Next
+
+                Filter = "TagID In(" & Left(TagList, TagList.Length - 1) & ")"
+                ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", PropList, Filter, "", "", 0)
+            ElseIf MergeRadioButton.Checked Then
+                ds = New Data.DataSet
+                ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", PropList, "TagID='" & TagStartTextBox.Text & "'", "", "", 0)
+            End If
+
+
+
+            'If b_rows.Length = 0 And s_rows.Length = 0 Then
+            '    NotPassNotifyPanel.Visible = True
+            '    NotPassText.Text = "ไม่ได้กำหนด Tag Template !!!"
+            'End If
+
+            Dim CallTaskCount As Integer = 0
+            Dim CountNoTask As Integer = 0
+            Dim TaskName As String = ""
+
+            Dim dv As New Data.DataView
+            dv = ds.Tables(0).DefaultView
+
+            Dim CountSelectedBigTag As Integer = 0
+            Dim BigSelectCheckBox As CheckBox
+            For Each row As GridViewRow In dataTables.Rows
+                BigSelectCheckBox = DirectCast(row.FindControl("SelectCheckBox"), CheckBox)
+                If BigSelectCheckBox.Checked And row.Cells(2).Text = "Big" Then
+                    CountSelectedBigTag += 1
+                End If
+            Next
+
+            'Call Big Tag Task
+            dv.RowFilter = "TagSize = 'B'"
+            If dv.Count > 0 And BoxTagCheckBox.Checked And ReprintOK And CountSelectedBigTag > 0 Then
+                For Each row As Data.DataRow In dv.ToTable(True, "ItemBigTagTemplate").Rows
+                    If row("ItemBigTagTemplate").ToString <> "" Then
+                        oWS = New SLWebServices.DOWebServiceSoapClient
+                        ds = New Data.DataSet
+                        ds = oWS.LoadDataSet(Session("Token"), "BGTaskDefinitions", "TaskName", "TaskName='" & row("ItemBigTagTemplate").ToString & "'", "", "", 0)
+                        If ds.Tables(0).Rows.Count = 0 Then
+                            CountNoTask += 1
+                        End If
+                    End If
+                Next
+
+                If CountNoTask = 0 Then
+                    For Each row As Data.DataRow In dv.ToTable(True, "ItemBigTagTemplate").Rows
+                        If Not row.IsNull("ItemBigTagTemplate") Then
+                            oWS = New SLWebServices.DOWebServiceSoapClient
+                            Parms = "<Parameters>"
+                            Parms &= "<Parameter>" & row("ItemBigTagTemplate").ToString & "</Parameter>"
+                            Parms &= "<Parameter>" & TaskParms & "</Parameter>"
+                            Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                            Parms &= "<Parameter ByRef='Y'>" & String.Empty & "</Parameter>"
+                            Parms &= "</Parameters>"
+                            oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_InsertActiveBGTaskForPrintBCSp", Parms)
+
+                            Dim doc As XmlDocument = New XmlDocument()
+                            doc.LoadXml(Parms)
+                            Dim TaskNumber As String = ""
+                            Dim i As Integer = 1
+
+                            For Each node As XmlNode In doc.DocumentElement
+                                If i = 4 Then
+                                    If Trim(node.InnerText) <> "" Then
+                                        TaskNumber = node.InnerText
+                                        Call TaskManRunning(TaskNumber)
+                                        CallTaskCount += 1
+                                    End If
+                                End If
+                                i += 1
+                            Next
+                        End If
+                    Next
+                End If
+            End If
+
+            Dim CountSelectedSmallTag As Integer = 0
+            Dim SmallSelectCheckBox As CheckBox
+            For Each row As GridViewRow In dataTables.Rows
+                SmallSelectCheckBox = DirectCast(row.FindControl("SelectCheckBox"), CheckBox)
+                If SmallSelectCheckBox.Checked And row.Cells(2).Text = "Small" Then
+                    CountSelectedSmallTag += 1
+                End If
+            Next
+
+
+            'Call Small Tag Task
+            dv.RowFilter = "TagSize='S'"
+            If dv.Count > 0 And BagTagCheckBox.Checked And ReprintOK And CountSelectedSmallTag > 0 Then
+                For Each row As Data.DataRow In dv.ToTable(True, "ItemSmallTagTemplate").Rows
+                    If row("ItemSmallTagTemplate").ToString <> "" Then
+                        oWS = New SLWebServices.DOWebServiceSoapClient
+                        ds = New Data.DataSet
+                        ds = oWS.LoadDataSet(Session("Token"), "BGTaskDefinitions", "TaskName", "TaskName='" & row("ItemSmallTagTemplate").ToString & "'", "", "", 0)
+                        If ds.Tables(0).Rows.Count = 0 Then
+                            CountNoTask += 1
+                        End If
+                    End If
+                Next
+
+                If CountNoTask = 0 Then
+                    For Each row As Data.DataRow In dv.ToTable(True, "ItemSmallTagTemplate").Rows
+                        If Not row.IsNull("ItemSmallTagTemplate") Then
+                            oWS = New SLWebServices.DOWebServiceSoapClient
+                            Parms = "<Parameters>"
+                            Parms &= "<Parameter>" & row("ItemSmallTagTemplate").ToString & "</Parameter>"
+                            Parms &= "<Parameter>" & TaskParms & "</Parameter>"
+                            Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+                            Parms &= "<Parameter ByRef='Y'>" & String.Empty & "</Parameter>"
+                            Parms &= "</Parameters>"
+                            oWS.CallMethod(Session("Token").ToString, "PPCC_Tags", "PPCC_InsertActiveBGTaskForPrintBCSp", Parms)
+
+                            Dim doc As XmlDocument = New XmlDocument()
+                            doc.LoadXml(Parms)
+                            Dim TaskNumber As String = ""
+                            Dim i As Integer = 1
+                            For Each node As XmlNode In doc.DocumentElement
+                                If i = 4 Then
+                                    If Trim(node.InnerText) <> "" Then
+                                        TaskNumber = node.InnerText
+                                        Call TaskManRunning(TaskNumber)
+                                        CallTaskCount += 1
+                                    End If
+                                End If
+                                i += 1
+                            Next
+                        End If
+                    Next
+                End If
+            End If
+
+            If (CallTaskCount = 0 And dv.Count = 0) Or CountNoTask > 0 Then
+                NotPassNotifyPanel.Visible = True
+                NotPassText.Text = "ไม่ได้กำหนด Tag Template !!!"
+                MultiView1.ActiveViewIndex = 0
+            End If
+
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+    Protected Sub dataTables_DataBound(sender As Object, e As System.EventArgs) Handles dataTables.DataBound
+        For Each row As GridViewRow In dataTables.Rows
+            If row.Cells(2).Text = "B" Then
+                row.Cells(2).Text = "Big"
+            ElseIf row.Cells(2).Text = "S" Then
+                row.Cells(2).Text = "Small"
+            End If
+        Next
+    End Sub
+
+    Protected Sub dataTables_RowDataBound(sender As Object, e As System.Web.UI.WebControls.GridViewRowEventArgs) Handles dataTables.RowDataBound
+        If e.Row.RowType = DataControlRowType.Header Then
+            e.Row.TableSection = TableRowSection.TableHeader
+
+            Dim HdrCheckBox As CheckBox = DirectCast(e.Row.FindControl("HdrCheckBox"), CheckBox)
+
+            If NewRadioButton.Checked Then
+                HdrCheckBox.Enabled = False
+            Else
+                HdrCheckBox.Enabled = True
+            End If
+
+            If MergeRadioButton.Checked Then
+                HdrCheckBox.Checked = False
+            End If
+
+        ElseIf e.Row.RowType = DataControlRowType.DataRow Then
+            Dim SelectCheckBox As CheckBox = DirectCast(e.Row.FindControl("SelectCheckBox"), CheckBox)
+            If NewRadioButton.Checked Then
+                SelectCheckBox.Enabled = False
+            Else
+                SelectCheckBox.Enabled = True
+            End If
+
+            If MergeRadioButton.Checked Then
+                SelectCheckBox.Checked = False
+            End If
+        End If
+
+    End Sub
+
+    Protected Sub LinkReportGridView_RowCommand(sender As Object, e As System.Web.UI.WebControls.GridViewCommandEventArgs) Handles LinkReportGridView.RowCommand
+        If e.CommandName = "PrintReport" Then
+            Dim script As String = "window.open('" & e.CommandArgument.ToString & "', '_blank')"
+            Page.ClientScript.RegisterClientScriptBlock(Me.GetType(), "response", script, True)
+
+            ' Define the name and type of the client scripts on the page.
+            'Dim csname1 As String = "PopupScript"
+            'Dim csname2 As String = "ButtonClickScript"
+            'Dim cstype As Type = Me.GetType()
+
+            ' Get a ClientScriptManager reference from the Page class.
+            'Dim cs As ClientScriptManager = Page.ClientScript
+
+            ' Check to see if the startup script is already registered.
+            'If (Not cs.IsStartupScriptRegistered(cstype, csname1)) Then
+
+            '    Dim cstext1 As String = "alert('Hello World');"
+            '    cs.RegisterStartupScript(cstype, csname1, cstext1, True)
+
+            'End If
+
+            ' Check to see if the client script is already registered.
+
+            'If (Not cs.IsClientScriptBlockRegistered(cstype, csname2)) Then
+
+            '    Dim cstext2 As New StringBuilder()
+            '    cstext2.Append("<script type=""text/javascript""> function DoClick() {")
+            '    cstext2.Append("window.open('" & e.CommandArgument.ToString & "', '_blank'); " & " return false; </")
+            '    cstext2.Append("script>")
+            '    cs.RegisterClientScriptBlock(cstype, csname2, cstext2.ToString(), False)
+
+            'End If
+
+        End If
+    End Sub
+
+    Protected Sub Button1_Click(sender As Object, e As System.EventArgs) Handles Button1.Click
+        MultiView1.ActiveViewIndex = 0
+
+        Dim Item As String = ""
+        Dim FractionType As String = ""
+
+        Item = GetItemByJob(JobStartTextBox.Text, SuffixStartTextBox.Text)
+        FractionType = GetItemFracTypeByItem(Item)
+
+        Dim ds As New Data.DataSet
+        Dim Filter As String = ""
+
+
+        If FractionType = "M" Or FractionType = "I" Then
+
+            'Filter = "Job='" & JobStartTextBox.Text & "' And Suffix=" & SuffixStartTextBox.Text
+            Filter = "RefNum='" & JobStartTextBox.Text & "' And RefLine=" & SuffixStartTextBox.Text
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagID", Filter, "", "", 0)
+
+            If ds.Tables(0).Rows.Count = 0 Then
+                chkfraction.Checked = False
+
+                GridFraction.DataSource = Nothing
+                GridFraction.DataBind()
+
+                GridSumFraction.DataSource = Nothing
+                GridSumFraction.DataBind()
+            Else
+
+                Call CheckNewOrReprint()
+                chkcancel.Checked = False
+
+            End If
+
+        Else
+
+            Call CheckNewOrReprint()
+
+        End If
+
+    End Sub
+
+    Protected Sub NewRadioButton_CheckedChanged(sender As Object, e As System.EventArgs) Handles NewRadioButton.CheckedChanged
+        JobStartTextBox.Text = ""
+        JobEndTextBox.Text = ""
+        ItemStartTextBox.Text = ""
+        ItemEndTextBox.Text = ""
+        LotStartTextBox.Text = ""
+        LotEndTextBox.Text = ""
+        TagStartTextBox.Text = ""
+        TagEndTextBox.Text = ""
+        StartPrintBigTagTextBox.Text = ""
+        StartPrintSmallTagTextBox.Text = ""
+
+        JobStartTextBox.Enabled = True
+        JobEndTextBox.Enabled = True
+        ItemStartTextBox.Enabled = True
+        ItemEndTextBox.Enabled = True
+        LotStartTextBox.Enabled = True
+        LotEndTextBox.Enabled = True
+        TagStartTextBox.Enabled = True
+        TagEndTextBox.Enabled = True
+        SuffixStartTextBox.Enabled = True
+        SuffixEndTextBox.Enabled = True
+
+        chkfraction.Visible = True
+        chkfraction.Enabled = True
+        chkfraction.Checked = False
+
+        chkcancel.Visible = False
+        btnConfirm.Visible = False
+
+        SplitTagTextBox.Text = ""
+        SplitTagQtyTextBox.Text = ""
+
+        GridFraction.DataSource = Nothing
+        GridFraction.DataBind()
+
+        GridSumFraction.DataSource = Nothing
+        GridSumFraction.DataBind()
+
+        SplitTagTextBox.Enabled = False
+        SplitTagQtyTextBox.Enabled = False
+
+        'NewRadioButton.Enabled = True
+        'ReprintRadioButton.Enabled = False
+
+        BoxTagCheckBox.Checked = True
+        BagTagCheckBox.Checked = True
+        BoxTagCheckBox.Enabled = False
+        BagTagCheckBox.Enabled = False
+
+        BigPanel42.Visible = True
+        BigPanel52.Visible = True
+        SmallPanel42.Visible = True
+        SmallPanel83.Visible = True
+
+        For Each Ctl As Control In BigPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn42 As New Button
+                BigBtn42 = DirectCast(Ctl, Button)
+                BigBtn42.CssClass = "btn btn-success"
+            End If
+        Next
+
+        For Each Ctl As Control In BigPanel52.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn52 As New Button
+                BigBtn52 = DirectCast(Ctl, Button)
+                BigBtn52.CssClass = "btn btn-default"
+            End If
+        Next
+
+        For Each Ctl As Control In SmallPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn42 As New Button
+                SmallBtn42 = DirectCast(Ctl, Button)
+                SmallBtn42.CssClass = "btn btn-default"
+            End If
+        Next
+
+        For Each Ctl As Control In SmallPanel83.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn83 As New Button
+                SmallBtn83 = DirectCast(Ctl, Button)
+                SmallBtn83.CssClass = "btn btn-success"
+            End If
+        Next
+
+        JobStartTextBox.Focus()
+
+
+    End Sub
+
+    Protected Sub ReprintRadioButton_CheckedChanged(sender As Object, e As System.EventArgs) Handles ReprintRadioButton.CheckedChanged
+        JobStartTextBox.Text = ""
+        JobEndTextBox.Text = ""
+        ItemStartTextBox.Text = ""
+        ItemEndTextBox.Text = ""
+        LotStartTextBox.Text = ""
+        LotEndTextBox.Text = ""
+        TagStartTextBox.Text = ""
+        TagEndTextBox.Text = ""
+        StartPrintBigTagTextBox.Text = ""
+        StartPrintSmallTagTextBox.Text = ""
+
+        chkfraction.Visible = True
+        chkfraction.Enabled = False
+        chkfraction.Checked = False
+
+        chkcancel.Visible = False
+        btnConfirm.Visible = False
+
+        GridFraction.DataSource = Nothing
+        GridFraction.DataBind()
+
+        GridSumFraction.DataSource = Nothing
+        GridSumFraction.DataBind()
+
+        JobStartTextBox.Enabled = True
+        JobEndTextBox.Enabled = True
+        ItemStartTextBox.Enabled = True
+        ItemEndTextBox.Enabled = True
+        LotStartTextBox.Enabled = True
+        LotEndTextBox.Enabled = True
+        TagStartTextBox.Enabled = True
+        TagEndTextBox.Enabled = True
+        SuffixStartTextBox.Enabled = True
+        SuffixEndTextBox.Enabled = True
+
+        'NewRadioButton.Enabled = False
+        'ReprintRadioButton.Enabled = True
+
+        SplitTagTextBox.Text = ""
+        SplitTagQtyTextBox.Text = ""
+
+        SplitTagTextBox.Enabled = False
+        SplitTagQtyTextBox.Enabled = False
+
+        BoxTagCheckBox.Enabled = True
+        BagTagCheckBox.Enabled = True
+
+        For Each Ctl As Control In BigPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn42 As New Button
+                BigBtn42 = DirectCast(Ctl, Button)
+                BigBtn42.CssClass = "btn btn-success"
+            End If
+        Next
+
+        For Each Ctl As Control In BigPanel52.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn52 As New Button
+                BigBtn52 = DirectCast(Ctl, Button)
+                BigBtn52.CssClass = "btn btn-default"
+            End If
+        Next
+
+        For Each Ctl As Control In SmallPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn42 As New Button
+                SmallBtn42 = DirectCast(Ctl, Button)
+                SmallBtn42.CssClass = "btn btn-default"
+            End If
+        Next
+
+        For Each Ctl As Control In SmallPanel83.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn83 As New Button
+                SmallBtn83 = DirectCast(Ctl, Button)
+                SmallBtn83.CssClass = "btn btn-success"
+            End If
+        Next
+
+        JobStartTextBox.Focus()
+    End Sub
+
+    Protected Sub SplitRadioButton_CheckedChanged(sender As Object, e As System.EventArgs) Handles SplitRadioButton.CheckedChanged
+        JobStartTextBox.Text = ""
+        JobEndTextBox.Text = ""
+        ItemStartTextBox.Text = ""
+        ItemEndTextBox.Text = ""
+        LotStartTextBox.Text = ""
+        LotEndTextBox.Text = ""
+        TagStartTextBox.Text = ""
+        TagEndTextBox.Text = ""
+        StartPrintBigTagTextBox.Text = ""
+        StartPrintSmallTagTextBox.Text = ""
+
+        chkfraction.Visible = False
+
+        JobStartTextBox.Enabled = False
+        JobEndTextBox.Enabled = False
+        ItemStartTextBox.Enabled = False
+        ItemEndTextBox.Enabled = False
+        LotStartTextBox.Enabled = False
+        LotEndTextBox.Enabled = False
+        TagStartTextBox.Enabled = False
+        TagEndTextBox.Enabled = False
+        SuffixStartTextBox.Enabled = False
+        SuffixEndTextBox.Enabled = False
+
+        SplitTagTextBox.Enabled = True
+        SplitTagQtyTextBox.Enabled = True
+
+        BoxTagCheckBox.Enabled = True
+        BagTagCheckBox.Enabled = True
+
+        SplitTagTextBox.Text = ""
+        SplitTagQtyTextBox.Text = ""
+
+        GridFraction.DataSource = Nothing
+        GridFraction.DataBind()
+
+        GridSumFraction.DataSource = Nothing
+        GridSumFraction.DataBind()
+
+        For Each Ctl As Control In BigPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn42 As New Button
+                BigBtn42 = DirectCast(Ctl, Button)
+                BigBtn42.CssClass = "btn btn-success"
+            End If
+        Next
+
+        For Each Ctl As Control In BigPanel52.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn52 As New Button
+                BigBtn52 = DirectCast(Ctl, Button)
+                BigBtn52.CssClass = "btn btn-default"
+            End If
+        Next
+
+        For Each Ctl As Control In SmallPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn42 As New Button
+                SmallBtn42 = DirectCast(Ctl, Button)
+                SmallBtn42.CssClass = "btn btn-default"
+            End If
+        Next
+
+        For Each Ctl As Control In SmallPanel83.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn83 As New Button
+                SmallBtn83 = DirectCast(Ctl, Button)
+                SmallBtn83.CssClass = "btn btn-success"
+            End If
+        Next
+
+        SplitTagTextBox.Focus()
+    End Sub
+
+    Protected Sub MergeRadioButton_CheckedChanged(sender As Object, e As System.EventArgs) Handles MergeRadioButton.CheckedChanged
+        JobStartTextBox.Text = ""
+        JobEndTextBox.Text = ""
+        ItemStartTextBox.Text = ""
+        ItemEndTextBox.Text = ""
+        LotStartTextBox.Text = ""
+        LotEndTextBox.Text = ""
+        TagStartTextBox.Text = ""
+        TagEndTextBox.Text = ""
+        StartPrintBigTagTextBox.Text = ""
+        StartPrintSmallTagTextBox.Text = ""
+
+        chkfraction.Visible = False
+
+        JobStartTextBox.Enabled = False
+        JobEndTextBox.Enabled = False
+        ItemStartTextBox.Enabled = False
+        ItemEndTextBox.Enabled = False
+        LotStartTextBox.Enabled = False
+        LotEndTextBox.Enabled = False
+        TagStartTextBox.Enabled = True
+        TagEndTextBox.Enabled = False
+        SuffixStartTextBox.Enabled = False
+        SuffixEndTextBox.Enabled = False
+
+        SplitTagTextBox.Enabled = False
+        SplitTagQtyTextBox.Enabled = False
+
+        BoxTagCheckBox.Enabled = True
+        BagTagCheckBox.Enabled = True
+
+        chkcancel.Visible = False
+        btnConfirm.Visible = False
+
+        SplitTagTextBox.Text = ""
+        SplitTagQtyTextBox.Text = ""
+
+        GridFraction.DataSource = Nothing
+        GridFraction.DataBind()
+
+        GridSumFraction.DataSource = Nothing
+        GridSumFraction.DataBind()
+
+        For Each Ctl As Control In BigPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn42 As New Button
+                BigBtn42 = DirectCast(Ctl, Button)
+                BigBtn42.CssClass = "btn btn-success"
+            End If
+        Next
+
+        For Each Ctl As Control In BigPanel52.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn52 As New Button
+                BigBtn52 = DirectCast(Ctl, Button)
+                BigBtn52.CssClass = "btn btn-default"
+            End If
+        Next
+
+        For Each Ctl As Control In SmallPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn42 As New Button
+                SmallBtn42 = DirectCast(Ctl, Button)
+                SmallBtn42.CssClass = "btn btn-default"
+            End If
+        Next
+
+        For Each Ctl As Control In SmallPanel83.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn83 As New Button
+                SmallBtn83 = DirectCast(Ctl, Button)
+                SmallBtn83.CssClass = "btn btn-success"
+            End If
+        Next
+
+        TagStartTextBox.Focus()
+    End Sub
+
+    Protected Sub CancelButton_Click(sender As Object, e As System.EventArgs) Handles CancelButton.Click
+        Response.Redirect("tag_fg.aspx")
+        'NewRadioButton.Checked = True
+        'JobStartTextBox.SelectedValue = ""
+        'JobEndTextBox.SelectedValue = ""
+        'ItemStartTextBox.SelectedValue = ""
+        'ItemEndTextBox.SelectedValue = ""
+        'LotStartTextBox.SelectedValue = ""
+        'LotEndTextBox.SelectedValue = ""
+        'TagIdStartTextBox.SelectedValue = ""
+        'TagIdEndTextBox.SelectedValue = ""
+
+        'JobStartTextBox.Enabled = True
+        'JobEndTextBox.Enabled = True
+        'ItemStartTextBox.Enabled = True
+        'ItemEndTextBox.Enabled = True
+        'LotStartTextBox.Enabled = True
+        'LotEndTextBox.Enabled = True
+        'TagIdStartTextBox.Enabled = True
+        'TagIdEndTextBox.Enabled = True
+        'SuffixStartTextBox.Enabled = True
+        'SuffixEndTextBox.Enabled = True
+
+        'SplitTagTextBox.Text = ""
+        'SplitTagQtyTextBox.Text = ""
+
+        'SplitTagTextBox.Enabled = False
+        'SplitTagQtyTextBox.Enabled = False
+    End Sub
+
+    Sub ResetStartPositionBigButton()
+        For Each Ctl As Control In BigPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn42 As New Button
+                BigBtn42 = DirectCast(Ctl, Button)
+                BigBtn42.CssClass = "btn btn-default"
+            End If
+        Next
+
+        For Each Ctl As Control In BigPanel52.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn52 As New Button
+                BigBtn52 = DirectCast(Ctl, Button)
+                BigBtn52.CssClass = "btn btn-default"
+            End If
+        Next
+    End Sub
+
+    Sub ResetStartPositionSmallButton()
+        For Each Ctl As Control In SmallPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn42 As New Button
+                SmallBtn42 = DirectCast(Ctl, Button)
+                SmallBtn42.CssClass = "btn btn-default"
+            End If
+        Next
+
+        For Each Ctl As Control In SmallPanel83.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn83 As New Button
+                SmallBtn83 = DirectCast(Ctl, Button)
+                SmallBtn83.CssClass = "btn btn-default"
+            End If
+        Next
+    End Sub
+
+    Protected Sub BigBtn42_Click(ByVal sender As Object, ByVal e As EventArgs) Handles BigButton42_1.Click, BigButton42_2.Click, BigButton42_3.Click, BigButton42_4.Click, BigButton42_5.Click, BigButton42_6.Click, BigButton42_7.Click, BigButton42_8.Click
+        Call ResetStartPositionBigButton()
+
+        Dim BtnSender As New Button
+        BtnSender = DirectCast(sender, Button)
+
+        For Each Ctl As Control In BigPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn42 As New Button
+                BigBtn42 = DirectCast(Ctl, Button)
+
+                If Convert.ToInt32(BigBtn42.Text) < Convert.ToInt32(BtnSender.Text) Then
+                    BigBtn42.CssClass = "btn btn-default"
+                Else
+                    BigBtn42.CssClass = "btn btn-success"
+                End If
+            End If
+        Next
+
+        StartPrintBigTagTextBox.Text = BtnSender.Text
+
+    End Sub
+
+    Protected Sub BigBtn52_Click(ByVal sender As Object, ByVal e As EventArgs) Handles BigButton52_1.Click, BigButton52_2.Click, BigButton52_3.Click, BigButton52_4.Click, BigButton52_5.Click, BigButton52_6.Click, BigButton52_7.Click, BigButton52_8.Click, BigButton52_9.Click, BigButton52_10.Click
+        Call ResetStartPositionBigButton()
+
+        Dim BtnSender As New Button
+        BtnSender = DirectCast(sender, Button)
+        'Dim Seq As Integer = BtnSender.Text
+
+        For Each Ctl As Control In BigPanel52.Controls
+            If TypeOf Ctl Is Button Then
+                Dim BigBtn52 As New Button
+                BigBtn52 = DirectCast(Ctl, Button)
+                If Convert.ToInt32(BigBtn52.Text) < Convert.ToInt32(BtnSender.Text) Then
+                    BigBtn52.CssClass = "btn btn-default"
+                Else
+                    BigBtn52.CssClass = "btn btn-success"
+                End If
+            End If
+        Next
+
+        StartPrintBigTagTextBox.Text = BtnSender.Text
+    End Sub
+
+    Protected Sub SmallBtn42_Click(sender As Object, e As System.EventArgs) Handles SmallBtn42_1.Click, SmallBtn42_2.Click, SmallBtn42_3.Click, SmallBtn42_4.Click, SmallBtn42_5.Click, SmallBtn42_6.Click, SmallBtn42_7.Click, SmallBtn42_8.Click
+        Call ResetStartPositionSmallButton()
+
+        Dim BtnSender As New Button
+        BtnSender = DirectCast(sender, Button)
+
+        For Each Ctl As Control In SmallPanel42.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn42 As New Button
+                SmallBtn42 = DirectCast(Ctl, Button)
+
+                If Convert.ToInt32(SmallBtn42.Text) < Convert.ToInt32(BtnSender.Text) Then
+                    SmallBtn42.CssClass = "btn btn-default"
+                Else
+                    SmallBtn42.CssClass = "btn btn-success"
+                End If
+            End If
+        Next
+
+        StartPrintSmallTagTextBox.Text = BtnSender.Text
+    End Sub
+
+    Protected Sub SmallBtn83_Click(sender As Object, e As System.EventArgs) Handles SmallButton83_1.Click, SmallButton83_2.Click, SmallButton83_3.Click, SmallButton83_4.Click, SmallButton83_5.Click, SmallButton83_6.Click, SmallButton83_7.Click, SmallButton83_8.Click, SmallButton83_9.Click, SmallButton83_10.Click, SmallButton83_11.Click, SmallButton83_12.Click, SmallButton83_13.Click, SmallButton83_14.Click, SmallButton83_15.Click, SmallButton83_16.Click, SmallButton83_17.Click, SmallButton83_18.Click, SmallButton83_19.Click, SmallButton83_20.Click, SmallButton83_21.Click, SmallButton83_22.Click, SmallButton83_23.Click, SmallButton83_24.Click
+        Call ResetStartPositionSmallButton()
+
+        Dim BtnSender As New Button
+        BtnSender = DirectCast(sender, Button)
+
+        For Each Ctl As Control In SmallPanel83.Controls
+            If TypeOf Ctl Is Button Then
+                Dim SmallBtn83 As New Button
+                SmallBtn83 = DirectCast(Ctl, Button)
+
+                If Convert.ToInt32(SmallBtn83.Text) < Convert.ToInt32(BtnSender.Text) Then
+                    SmallBtn83.CssClass = "btn btn-default"
+                Else
+                    SmallBtn83.CssClass = "btn btn-success"
+                End If
+            End If
+        Next
+
+        StartPrintSmallTagTextBox.Text = BtnSender.Text
+    End Sub
+
+    Protected Sub BoxTagCheckBox_CheckedChanged(sender As Object, e As System.EventArgs) Handles BoxTagCheckBox.CheckedChanged
+        If NewRadioButton.Checked = True And BoxTagCheckBox.Checked = True Then
+            BigPanel42.Visible = True
+            BigPanel52.Visible = True
+
+        ElseIf NewRadioButton.Checked = False And BoxTagCheckBox.Checked = False Then
+            BigPanel42.Visible = False
+            BigPanel52.Visible = False
+
+        ElseIf ReprintRadioButton.Checked = True And BoxTagCheckBox.Checked = True Then
+            BigPanel42.Visible = True
+            BigPanel52.Visible = True
+
+        ElseIf ReprintRadioButton.Checked = False And BoxTagCheckBox.Checked = False Then
+            BigPanel42.Visible = False
+            BigPanel52.Visible = False
+
+        ElseIf SplitRadioButton.Checked = True And BoxTagCheckBox.Checked = True Then
+            BigPanel42.Visible = True
+            BigPanel52.Visible = True
+
+        ElseIf SplitRadioButton.Checked = False And BoxTagCheckBox.Checked = False Then
+            BigPanel42.Visible = False
+            BigPanel52.Visible = False
+
+        ElseIf MergeRadioButton.Checked = True And BoxTagCheckBox.Checked = True Then
+            BigPanel42.Visible = True
+            BigPanel52.Visible = True
+
+        ElseIf MergeRadioButton.Checked = False And BoxTagCheckBox.Checked = False Then
+            BigPanel42.Visible = False
+            BigPanel52.Visible = False
+        End If
+        'BigPanel42.Visible = BoxTagCheckBox.Checked
+        'BigPanel52.Visible = BoxTagCheckBox.Checked
+    End Sub
+
+    Protected Sub BagTagCheckBox_CheckedChanged(sender As Object, e As System.EventArgs) Handles BagTagCheckBox.CheckedChanged
+
+        If NewRadioButton.Checked = True And BagTagCheckBox.Checked = True Then
+            SmallPanel42.Visible = True
+            SmallPanel83.Visible = True
+
+        ElseIf NewRadioButton.Checked = False And BagTagCheckBox.Checked = False Then
+            SmallPanel42.Visible = False
+            SmallPanel83.Visible = False
+
+        ElseIf ReprintRadioButton.Checked = True And BagTagCheckBox.Checked = True Then
+            SmallPanel42.Visible = True
+            SmallPanel83.Visible = True
+
+        ElseIf ReprintRadioButton.Checked = False And BagTagCheckBox.Checked = False Then
+            SmallPanel42.Visible = False
+            SmallPanel83.Visible = False
+
+        ElseIf SplitRadioButton.Checked = True And BagTagCheckBox.Checked = True Then
+            SmallPanel42.Visible = True
+            SmallPanel83.Visible = True
+
+        ElseIf SplitRadioButton.Checked = False And BagTagCheckBox.Checked = False Then
+            SmallPanel42.Visible = False
+            SmallPanel83.Visible = False
+
+        ElseIf MergeRadioButton.Checked = True And BagTagCheckBox.Checked = True Then
+            SmallPanel42.Visible = True
+            SmallPanel83.Visible = True
+
+        ElseIf MergeRadioButton.Checked = False And BagTagCheckBox.Checked = False Then
+            SmallPanel42.Visible = False
+            SmallPanel83.Visible = False
+        End If
+        'SmallPanel42.Visible = BagTagCheckBox.Checked
+        'SmallPanel83.Visible = BagTagCheckBox.Checked
+    End Sub
+
+    Protected Sub JobStartTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles JobStartTextBox.TextChanged
+
+        GridFraction.DataSource = Nothing
+        GridFraction.DataBind()
+
+        GridSumFraction.DataSource = Nothing
+        GridSumFraction.DataBind()
+
+        Dim strJob As String
+        strJob = JobStartTextBox.Text
+
+        JobEndTextBox.Text = strJob
+
+        Dim Item As String = ""
+        Dim FractionType As String = ""
+        'Dim iCheck As Integer
+        'iCheck = CheckFractionByJob()
+
+        Call GetItemTagTemplate()
+        Call CheckNewOrReprint()
+
+        If chkfraction.Checked = True Then
+            iCheck = 1
+        Else
+            iCheck = 0
+        End If
+
+    End Sub
+
+
+
+    Sub GetItemTagTemplate()
+        Dim Job As String = JobStartTextBox.Text
+        Dim Suffix As String = SuffixStartTextBox.Text
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        Dim ds As New Data.DataSet
+
+        Dim Item As String = ""
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobs", "Job, Item", "Job='" & JobStartTextBox.Text & "'", "", "", 0)
+        If ds.Tables.Count > 0 Then
+            If ds.Tables(0).Rows.Count > 0 Then
+                Item = ds.Tables(0).Rows(0)("Item").ToString
+            End If
+        End If
+
+        Dim BigTagTemplateName As String = ""
+        Dim SmallTagTemplateName As String = ""
+
+        ds = New Data.DataSet
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLItems", "itmUf_Item_TagTemplate, itmUf_Item_SmallTagTemplate", "Item='" & Item & "'", "", "", 0)
+
+        If ds.Tables.Count > 0 Then
+            If ds.Tables(0).Rows.Count > 0 Then
+                BigTagTemplateName = ds.Tables(0).Rows(0)("itmUf_Item_TagTemplate").ToString
+                SmallTagTemplateName = ds.Tables(0).Rows(0)("itmUf_Item_SmallTagTemplate").ToString
+            End If
+        End If
+
+        If InStr(BigTagTemplateName.ToUpper, "BIG") > 0 And BoxTagCheckBox.Checked Then
+            For Each Ctl As Control In BigPanel42.Controls
+                If TypeOf Ctl Is Button Then
+                    Dim BigBtn42 As New Button
+                    BigBtn42 = DirectCast(Ctl, Button)
+                    BigBtn42.CssClass = "btn btn-success"
+                End If
+            Next
+
+            For Each Ctl As Control In BigPanel52.Controls
+                If TypeOf Ctl Is Button Then
+                    Dim BigBtn52 As New Button
+                    BigBtn52 = DirectCast(Ctl, Button)
+                    BigBtn52.CssClass = "btn btn-default"
+                End If
+            Next
+        End If
+
+        If InStr(BigTagTemplateName.ToUpper, "BIGP") > 0 And BoxTagCheckBox.Checked Then
+            For Each Ctl As Control In BigPanel42.Controls
+                If TypeOf Ctl Is Button Then
+                    Dim BigBtn42 As New Button
+                    BigBtn42 = DirectCast(Ctl, Button)
+                    BigBtn42.CssClass = "btn btn-default"
+                End If
+            Next
+
+            For Each Ctl As Control In BigPanel52.Controls
+                If TypeOf Ctl Is Button Then
+                    Dim BigBtn52 As New Button
+                    BigBtn52 = DirectCast(Ctl, Button)
+                    BigBtn52.CssClass = "btn btn-success"
+                End If
+            Next
+        End If
+
+        If InStr(SmallTagTemplateName.ToUpper, "INBIG") > 0 And BagTagCheckBox.Checked Then
+            'BigPanel42.Visible = True
+            'BigPanel52.Visible = False
+
+            For Each Ctl As Control In SmallPanel42.Controls
+                If TypeOf Ctl Is Button Then
+                    Dim SmallBtn42 As New Button
+                    SmallBtn42 = DirectCast(Ctl, Button)
+                    SmallBtn42.CssClass = "btn btn-success"
+                End If
+            Next
+
+            For Each Ctl As Control In SmallPanel83.Controls
+                If TypeOf Ctl Is Button Then
+                    Dim SmallBtn83 As New Button
+                    SmallBtn83 = DirectCast(Ctl, Button)
+                    SmallBtn83.CssClass = "btn btn-default"
+                End If
+            Next
+        End If
+
+        'If InStr(BigTagTemplateName.ToUpper, "BIGSM") > 0 And BoxTagCheckBox.Checked Then
+        '    BigPanel42.Visible = False
+        '    BigPanel52.Visible = True
+        'End If
+
+        If InStr(SmallTagTemplateName.ToUpper, "SMALL") > 0 And BagTagCheckBox.Checked Then
+            'SmallPanel42.Visible = False
+            'SmallPanel83.Visible = True
+
+            For Each Ctl As Control In SmallPanel42.Controls
+                If TypeOf Ctl Is Button Then
+                    Dim SmallBtn42 As New Button
+                    SmallBtn42 = DirectCast(Ctl, Button)
+                    SmallBtn42.CssClass = "btn btn-default"
+                End If
+            Next
+
+            For Each Ctl As Control In SmallPanel83.Controls
+                If TypeOf Ctl Is Button Then
+                    Dim SmallBtn83 As New Button
+                    SmallBtn83 = DirectCast(Ctl, Button)
+                    SmallBtn83.CssClass = "btn btn-success"
+                End If
+            Next
+        End If
+
+    End Sub
+
+    Protected Sub ItemStartTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles ItemStartTextBox.TextChanged
+        Dim strItem As String
+        strItem = ItemStartTextBox.Text
+
+        ItemEndTextBox.Text = strItem
+        Call GetItemTagTemplate()
+    End Sub
+
+
+    Protected Sub LotStartTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles LotStartTextBox.TextChanged
+        Dim strLot As String
+        strLot = LotStartTextBox.Text
+
+        LotEndTextBox.Text = strLot
+        Call GetItemTagTemplate()
+    End Sub
+
+
+    Protected Sub TagStartTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles TagStartTextBox.TextChanged
+        Dim strTag As String
+        strTag = TagStartTextBox.Text
+
+        TagEndTextBox.Text = strTag
+        Call GetItemTagTemplate()
+    End Sub
+
+    Function PPCC_CheckExistsLot(sLot As String, sJob As String) As Integer
+
+        Dim i As Integer = 0
+        Dim ds As New Data.DataSet
+
+        If sLot <> String.Empty Then
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token"), "SLPreassignedLots", "Lot", "Lot = '" & sLot & "'", "", "", 0)
+
+            If ds.Tables(0).Rows.Count = 0 Then
+                i = -1
+            Else
+                i = 0
+            End If
+
+        ElseIf sJob <> String.Empty Then
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token"), "SLJobs", "Job", "Job = '" & sJob & "'", "", "", 0)
+
+            If ds.Tables(0).Rows.Count = 0 Then
+                i = -1
+            Else
+                i = 0
+            End If
+
+        ElseIf sLot = String.Empty Or sJob = String.Empty Then
+            i = 0
+        End If
+
+        Return i
+
+    End Function
+
+    'Protected Sub Button2_Click(sender As Object, e As System.EventArgs) Handles Button2.Click
+    '    Dim Parms As String = "<Parameters>"
+    '    Parms &= "<Parameter>" & SessionID.ToString & "</Parameter>"
+    '    Parms &= "<Parameter>" & Session("UserName").ToString & "</Parameter>"
+    '    Parms &= "<Parameter>" & "FG" & "</Parameter>"
+    '    Parms &= "<Parameter>" & JobStartTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & JobEndTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & SuffixStartTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & SuffixEndTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & ItemStartTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & ItemEndTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & LotStartTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & LotEndTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & TagStartTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & TagEndTextBox.Text & "</Parameter>"
+    '    Parms &= "<Parameter>" & IIf(BoxTagCheckBox.Checked, "1", "0") & "</Parameter>"
+    '    Parms &= "<Parameter>" & IIf(BagTagCheckBox.Checked, "1", "0") & "</Parameter>"
+    '    Parms &= "</Parameters>"
+
+    '    Label1.Text = Parms
+
+    'End Sub
+
+    Protected Sub chkfraction_CheckedChanged(sender As Object, e As System.EventArgs) Handles chkfraction.CheckedChanged
+
+        If chkfraction.Checked = True Then
+
+            'Dim ds As New Data.DataSet
+
+            Dim ds As New Data.DataSet
+            Dim parms As String = ""
+
+            parms = "<Parameters><Parameter>" & JobStartTextBox.Text & "</Parameter></Parameters>"
+
+            Dim res As Object
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            res = oWS.CallMethod(Session("Token").ToString, "PPCC_tmp_fractiontags", "PPCC_DeleteBeforeInsertTempFractionSp", parms)
+
+            Call BindGridFraction()
+
+        Else
+
+            GridFraction.DataSource = Nothing
+            GridFraction.DataBind()
+
+            GridSumFraction.DataSource = Nothing
+            GridSumFraction.DataBind()
+
+
+        End If
+
+
+    End Sub
+
+    Sub BindGridFraction()
+
+        Dim ds_fraction As Data.DataSet
+
+        ds_fraction = New Data.DataSet
+        Dim filter, Propertie, Item, FractionType, ModelTag, FractionModel As String
+
+        Item = GetItemByJob(JobStartTextBox.Text, SuffixStartTextBox.Text)
+        FractionType = GetItemFracTypeByItem(Item)
+        'MsgBox(FractionType)
+        Propertie = "Item, Description, Lot, Quantity, u_m, FractionModel, Job, Loc, Whse, TagID, RowPointer"
+
+        If FractionType = "I" Then
+
+            filter = "Item = '" & Item & "' and flag = 0 and Job <> '" & JobStartTextBox.Text & "' and Quantity > 0"
+
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds_fraction = oWS.LoadDataSet(Session("Token"), "ppcc_fraction_bals", Propertie, filter, "Job", "", 0)
+
+            GridFraction.DataSource = ds_fraction.Tables(0)
+            GridFraction.DataBind()
+
+        ElseIf FractionType = "M" Then
+
+            'MsgBox(Item)
+
+            'ModelTag = GetModelByItem(Item)
+            FractionModel = GetFractionModelByItem(Item)
+            'MsgBox(ModelTag)
+
+            filter = "FractionModel = '" & FractionModel & "' and flag = 0 and Job <> '" & JobStartTextBox.Text & "' and Quantity > 0"
+            'filter = "ModelName = '" & ModelTag & "' and FractionModel = '" & FractionModel & "' and flag = 0"
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds_fraction = oWS.LoadDataSet(Session("Token"), "ppcc_fraction_bals", Propertie, filter, "Job", "", 0)
+
+            GridFraction.DataSource = ds_fraction.Tables(0)
+            GridFraction.DataBind()
+
+        End If
+
+
+        If GridFraction.Rows.Count > 0 Then
+
+            Dim sum_qty As Integer = 0
+
+            For Each Row As GridViewRow In GridFraction.Rows
+
+                Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+
+                If SelectCheckBox.Checked = True Then
+                    '    'SelectedCount += 1
+
+                    'For i As Integer = 0 To GridFraction.Rows.Count - 1
+                    sum_qty += Row.Cells(4).Text
+
+                    'Next
+
+                End If
+
+            Next
+
+            Call BindGrid()
+
+            If GridSumFraction.Rows.Count > 0 Then
+
+                Dim Received As Decimal = 0
+                Dim Total As Decimal = 0
+                Dim Remain As Decimal = 0
+                Dim QtyStdTag As Decimal = 0
+                Dim QtyReserve As Decimal = 0
+
+                QtyStdTag = GetQtySmallTag(Item)
+
+                Received = QtyReceived()
+                QtyReserve = GetQtyReserve()
+                Total = Received + sum_qty
+                Remain = Total Mod QtyStdTag
+
+                GridSumFraction.Rows(0).Cells(0).Text = FormatNumber(Received, 3)
+                GridSumFraction.Rows(0).Cells(1).Text = FormatNumber(Total, 3)
+                GridSumFraction.Rows(0).Cells(2).Text = FormatNumber(Remain, 3)
+                GridSumFraction.Rows(0).Cells(3).Text = GridFraction.Rows(0).Cells(6).Text
+                GridSumFraction.Rows(0).Cells(4).Text = FormatNumber(QtyReserve, 3)
+
+            End If
+
+        ElseIf GridFraction.Rows.Count = 0 Then
+
+            GridSumFraction.DataSource = Nothing
+            GridSumFraction.DataBind()
+
+        End If
+
+    End Sub
+
+    Sub SelectCheckBox_CheckedChanged()
+
+        Dim sum_qty As Integer = 0
+
+        For Each Row As GridViewRow In GridFraction.Rows
+
+            Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+
+            If SelectCheckBox.Checked = True Then
+
+                sum_qty += Row.Cells(4).Text
+
+            End If
+
+        Next
+
+
+        Dim Received As Decimal = 0
+        Dim Total As Decimal = 0
+        Dim Remain As Decimal = 0
+        Dim Item As String
+        Dim QtyStdTag As Decimal = 0
+        Dim QtyReserve As Decimal = 0
+
+        Item = GetItemByJob(JobStartTextBox.Text, ItemStartTextBox.Text)
+        QtyStdTag = GetQtySmallTag(Item)
+
+        Received = QtyReceived()
+        QtyReserve = GetQtyReserve()
+        Total = Received + sum_qty
+        Remain = Total Mod QtyStdTag
+
+        GridSumFraction.Rows(0).Cells(0).Text = FormatNumber(Received, 3)
+        GridSumFraction.Rows(0).Cells(1).Text = FormatNumber(Total, 3)
+        GridSumFraction.Rows(0).Cells(2).Text = FormatNumber(Remain, 3)
+        GridSumFraction.Rows(0).Cells(3).Text = GridFraction.Rows(0).Cells(6).Text
+        GridSumFraction.Rows(0).Cells(4).Text = FormatNumber(QtyReserve, 3)
+
+    End Sub
+
+    Sub BindGrid()
+
+        If GridFraction.Rows.Count > 0 Then
+
+            Dim dt_sum As Data.DataTable
+            'If IsNothing(Session("SumFraction")) Then
+            dt_sum = New Data.DataTable
+            With dt_sum.Columns
+                .Add("QtyReceived", Type.GetType("System.Decimal"))
+                .Add("TotalQty", Type.GetType("System.Decimal"))
+                .Add("Remain", Type.GetType("System.Decimal"))
+                .Add("Model", Type.GetType("System.String"))
+                .Add("QtyReserve", Type.GetType("System.Decimal"))
+            End With
+
+            Dim dr As DataRow
+            dr = dt_sum.NewRow
+            'dr("QtyReceived") = 0
+            'dr("TotalQty") = 0
+            'dr("Remain") = 0
+            'dr("Model") = ""
+
+            dt_sum.Rows.Add(dr)
+
+
+            GridSumFraction.DataSource = dt_sum
+            GridSumFraction.DataBind()
+
+        End If
+
+    End Sub
+
+    'Sub ShowPageCommand(sender As Object, e As GridViewPageEventArgs) Handles GridFraction.PageIndexChanging
+    '    GridFraction.PageIndex = e.NewPageIndex
+    '    GridFraction.DataSource = ds_fraction.Tables(0)
+    '    GridFraction.DataBind()
+    'End Sub
+
+
+    Function GetItemByJob(sJob As String, sSuffix As String) As String
+
+        Dim ds As New Data.DataSet
+        Dim Filter, sItem As String
+
+        sItem = ""
+
+        Filter = "Job ='" & sJob & "' And Suffix =" & IIf(sSuffix = "", 0, sSuffix)
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token"), "SLJobs", "Item", Filter, "", "", 0)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            sItem = ds.Tables(0).Rows(0)("Item").ToString
+
+        End If
+
+        Return sItem
+
+    End Function
+
+    Function GetModelByItem(sItem As String) As String
+
+        Dim ds As New Data.DataSet
+        Dim Filter, sModel As String
+
+        sModel = ""
+        Filter = "Item ='" & sItem & "'"
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token"), "SLItems", "itmUf_Item_ModelName", Filter, "", "", 0)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            sModel = ds.Tables(0).Rows(0)("itmUf_Item_ModelName").ToString
+
+        End If
+
+        Return sModel
+
+    End Function
+
+    Function GetFractionModelByItem(sItem As String) As String
+
+        Dim ds As New Data.DataSet
+        Dim Filter, sFractionModel As String
+
+        sFractionModel = ""
+        Filter = "Item ='" & sItem & "'"
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token"), "SLItems", "itmUf_Item_FractionModel", Filter, "", "", 0)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            sFractionModel = ds.Tables(0).Rows(0)("itmUf_Item_FractionModel").ToString
+
+        End If
+
+        Return sFractionModel
+
+    End Function
+
+    Function GetFractionLoc() As String
+        Dim ds_FractionLoc As Data.DataSet
+        Dim Filter As String
+        Dim FractionLoc As String = ""
+        Dim strItem As String = ""
+        Dim strFractionType As String = ""
+
+        strItem = GetItemByJob(JobStartTextBox.Text, SuffixStartTextBox.Text)
+        strFractionType = GetItemFracTypeByItem(strItem)
+
+        ds_FractionLoc = New Data.DataSet
+
+        If strFractionType = "M" Or strFractionType = "I" Then
+
+            Filter = "Item = '" & strItem & "' And Whse = 'MAIN' And (Left(Loc, 2) = 'FI' OR Left(Loc, 2) = 'FE')"
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds_FractionLoc = oWS.LoadDataSet(Session("Token").ToString, "SLItemLocs", "Loc", Filter, "Rank", "", 0)
+
+            If ds_FractionLoc.Tables(0).Rows.Count > 0 Then
+                FractionLoc = ds_FractionLoc.Tables(0).Rows(0)("Loc").ToString
+            Else
+                FractionLoc = ""
+            End If
+
+        Else
+            FractionLoc = "STOCK"
+        End If
+
+        Return FractionLoc
+
+    End Function
+
+    Function GetItemFracTypeByItem(sItem As String) As String
+
+        Dim dsCust As New Data.DataSet
+        Dim Filter, sItemFraction As String
+
+        sItemFraction = ""
+        Filter = "Item = '" & sItem & "'"
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        'itmcstuf_itemcust_scraptype --CRP_SNPR, LIV_SNPR, itmcstUf_ItemCust_ScrapType --LIV_PPCC
+        'dsCust = oWS.LoadDataSet(Session("Token"), "PPCC_SLItemcusts", "itmcstUf_ItemCust_ScrapType", Filter, "itmcstUf_ItemCust_ScrapType desc", "", 0)
+        dsCust = oWS.LoadDataSet(Session("Token"), "PPCC_SLItemcusts", "itmcstuf_itemcust_scraptype", Filter, "itmcstuf_itemcust_scraptype desc", "", 0)
+
+        If dsCust.Tables(0).Rows.Count > 0 Then
+            'sItemFraction = dsCust.Tables(0).Rows(0)("itmcstUf_ItemCust_ScrapType").ToString
+            sItemFraction = dsCust.Tables(0).Rows(0)("itmcstuf_itemcust_scraptype").ToString
+        End If
+
+        'MsgBox(sItemFraction)
+
+        Return sItemFraction
+
+    End Function
+
+    Function QtyReceived() As Decimal
+
+        Dim ds As New Data.DataSet
+        Dim qty_Received As Decimal = 0
+        Dim Filter As String = "Job='" & JobStartTextBox.Text & "' And Suffix=" & SuffixStartTextBox.Text
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobRoutes", "QtyReceived", Filter, "OperNum desc", "", 0)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            qty_Received = ds.Tables(0).Rows(0)("QtyReceived").ToString
+        Else
+            qty_Received = -1
+        End If
+
+        Return qty_Received
+
+    End Function
+
+    Function GetQtyReserve() As Decimal
+
+        Dim ds As New Data.DataSet
+        Dim Qty_Reserve As Decimal = 0
+        Dim Filter As String = "JobInclude='" & JobStartTextBox.Text & "' And Flag = 1"
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_tmp_fractiontags", "Quantity", Filter, "", "", 0)
+
+        Dim dt As Data.DataTable
+        dt = New Data.DataTable
+
+        dt = ds.Tables(0)
+
+        If dt.Rows.Count > 0 Then
+            Dim obj As Object
+
+            obj = dt.Compute("Sum(Quantity)", "")
+
+            If obj Is System.DBNull.Value Then
+                Qty_Reserve = 0
+            Else
+                Qty_Reserve = Convert.ToDecimal(obj)
+            End If
+
+        End If
+
+
+        Return Qty_Reserve
+
+    End Function
+
+    Function GetQtySmallTag(sItem As String) As Integer
+
+        Dim QtySmallTag As Integer
+        Dim ds As New Data.DataSet
+        Dim Filter As String = ""
+
+        QtySmallTag = 0
+        Filter = "Item = '" & sItem & "'"
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLItems", "itmUf_Item_QtySmallTag", Filter, "", "", 0)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            QtySmallTag = CInt(ds.Tables(0).Rows(0)("itmUf_Item_QtySmallTag").ToString)
+
+        End If
+
+        Return QtySmallTag
+
+    End Function
+
+    Sub CheckNewOrReprint()
+
+        Dim Item As String = ""
+        Dim FractionType As String = ""
+
+        Item = GetItemByJob(JobStartTextBox.Text, SuffixStartTextBox.Text)
+        FractionType = GetItemFracTypeByItem(Item)
+
+        Dim ds As New Data.DataSet
+        'Dim qty_Complete As Decimal = 0
+        Dim Filter As String = ""
+        'Dim RefNum As String = ""
+
+
+        If FractionType = "M" Or FractionType = "I" Then
+
+            'Filter = "Job='" & JobStartTextBox.Text & "' And Suffix=" & SuffixStartTextBox.Text
+            Filter = "RefNum='" & JobStartTextBox.Text & "' And RefLine=" & SuffixStartTextBox.Text
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            'ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobRoutes", "QtyComplete", Filter, "OperNum desc", "", 0)
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagID", Filter, "", "", 0)
+
+            If ds.Tables(0).Rows.Count = 0 Then  '----------New 
+                'RefNum = ds.Tables(0).Rows(0)("QtyComplete").ToString
+
+                NewRadioButton.Checked = True
+                ReprintRadioButton.Checked = False
+
+                NewRadioButton.Enabled = True
+                ReprintRadioButton.Enabled = False
+
+                chkfraction.Visible = True
+                chkfraction.Enabled = True
+                chkfraction.Checked = False
+
+                chkcancel.Visible = False
+                btnConfirm.Visible = False
+
+            Else '----------Reprint
+
+                ReprintRadioButton.Checked = True
+                NewRadioButton.Checked = False
+
+                NewRadioButton.Enabled = False
+                ReprintRadioButton.Enabled = True
+
+                chkfraction.Visible = True
+                chkfraction.Enabled = True
+                'chkfraction.Checked = False
+                chkfraction.Checked = True
+
+                Dim QtyCompleteLastOper As Decimal = 0
+                QtyCompleteLastOper = QtyCompleteOnLastOper()
+
+                'MsgBox(QtyCompleteLastOper)
+
+                If QtyCompleteLastOper = 0 Then
+
+                    chkcancel.Visible = True
+                    btnConfirm.Visible = True
+
+                    Dim QtyReserve As Decimal = 0
+                    QtyReserve = GetQtyReserve()
+
+                    If QtyReserve > 0 Then
+                        chkcancel.Enabled = True
+                        btnConfirm.Enabled = True
+                    Else
+                        chkcancel.Enabled = False
+                        btnConfirm.Enabled = False
+                    End If
+
+                Else
+                    chkcancel.Visible = False
+                    btnConfirm.Visible = False
+                End If
+
+                'Dim oWS As SLWebServices.DOWebServiceSoapClient
+                Dim ds_reporint As DataSet
+                ds_reporint = New Data.DataSet
+                Dim listpropertie As String = "Item, Description, Lot, Quantity, u_m, FractionModel, Job, Loc, Whse, TagID"
+                Dim filter_re As String = "JobInclude = '" & JobStartTextBox.Text & "'"
+
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                ds_reporint = oWS.LoadDataSet(Session("Token").ToString, "PPCC_tmp_fractiontags", listpropertie, filter_re, "TagID", "", 0)
+
+                If ds_reporint.Tables(0).Rows.Count > 0 Then
+                    chkfraction.Checked = True
+                    chkfraction.Enabled = False
+
+                    GridFraction.DataSource = ds_reporint.Tables(0)
+                    GridFraction.DataBind()
+
+                    Dim sum_qty As Integer = 0
+
+                    For Each Row As GridViewRow In GridFraction.Rows
+
+                        Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+
+                        SelectCheckBox.Enabled = False
+
+                        If SelectCheckBox.Checked = True Then
+
+                            sum_qty += Row.Cells(4).Text
+
+                        End If
+
+                    Next
+
+                    Call BindGrid()
+
+                    If GridSumFraction.Rows.Count > 0 Then
+
+                        'Dim Item As String = ""
+                        ''Dim sum_qty As Decimal = 0
+
+                        'Item = GetItemByJob(JobStartTextBox.Text, SuffixStartTextBox.Text)
+
+                        Dim Received As Decimal = 0
+                        Dim Total As Decimal = 0
+                        Dim Remain As Decimal = 0
+                        Dim QtyStdTag As Decimal = 0
+                        Dim QtyReserve As Decimal = 0
+
+                        QtyStdTag = GetQtySmallTag(Item)
+
+                        Received = QtyReceived()
+                        QtyReserve = GetQtyReserve()
+                        Total = Received + sum_qty
+                        Remain = Total Mod QtyStdTag
+
+                        GridSumFraction.Rows(0).Cells(0).Text = FormatNumber(Received, 3)
+                        GridSumFraction.Rows(0).Cells(1).Text = FormatNumber(Total, 3)
+                        GridSumFraction.Rows(0).Cells(2).Text = FormatNumber(Remain, 3)
+                        GridSumFraction.Rows(0).Cells(3).Text = GridFraction.Rows(0).Cells(6).Text
+                        GridSumFraction.Rows(0).Cells(4).Text = FormatNumber(QtyReserve, 3)
+
+                    End If
+
+                Else
+
+                    If QtyCompleteLastOper = 0 Then
+                        chkfraction.Checked = False
+                        chkfraction.Enabled = True
+                    Else
+                        chkfraction.Checked = False
+                        chkfraction.Enabled = False
+                    End If
+
+                End If
+
+            End If
+
+        Else
+
+            Filter = "RefNum='" & JobStartTextBox.Text & "' And RefLine=" & SuffixStartTextBox.Text
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            'ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobRoutes", "QtyComplete", Filter, "OperNum desc", "", 0)
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", "TagID", Filter, "", "", 0)
+
+            If ds.Tables(0).Rows.Count = 0 Then
+
+                NewRadioButton.Checked = True
+                ReprintRadioButton.Checked = False
+
+                NewRadioButton.Enabled = True
+                ReprintRadioButton.Enabled = False
+
+                chkfraction.Visible = True
+                chkfraction.Enabled = False
+                chkfraction.Checked = False
+
+                chkcancel.Visible = False
+                btnConfirm.Visible = False
+
+            Else
+
+                ReprintRadioButton.Checked = True
+                NewRadioButton.Checked = False
+
+                NewRadioButton.Enabled = False
+                ReprintRadioButton.Enabled = True
+
+                chkfraction.Visible = True
+                chkfraction.Enabled = False
+                chkfraction.Checked = False
+
+                chkcancel.Visible = False
+                btnConfirm.Visible = False
+
+            End If
+
+        End If
+
+        
+
+    End Sub
+
+    Function QtyCompleteOnLastOper() As Decimal
+
+        Dim ds As New Data.DataSet
+        Dim qty_Complete As Decimal = 0
+        Dim Filter As String = ""
+
+        Filter = "Job='" & JobStartTextBox.Text & "' And Suffix=" & SuffixStartTextBox.Text
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobRoutes", "QtyComplete", Filter, "OperNum desc", "", 0)
+
+        If ds.Tables(0).Rows.Count > 0 Then
+            qty_Complete = ds.Tables(0).Rows(0)("QtyComplete").ToString
+        Else
+            qty_Complete = 0
+        End If
+
+
+        Return qty_Complete
+
+    End Function
+
+    'Function GetControlTagQtyOption(sItem As String) As String
+
+    '    Dim ds As New Data.DataSet
+    '    Dim TagQtyOption As String = ""
+    '    Dim Filter As String = ""
+
+    '    Filter = "Item='" & sItem & "'"
+
+    '    oWS = New SLWebServices.DOWebServiceSoapClient
+    '    ds = oWS.LoadDataSet(Session("Token").ToString, "SLItems", "itmUf_Item_CtrlTagQtyOption", Filter, "", "", 0)
+
+    '    If ds.Tables(0).Rows.Count > 0 Then
+    '        TagQtyOption = ds.Tables(0).Rows(0)("itmUf_Item_CtrlTagQtyOption").ToString
+
+    '        If TagQtyOption = "" Then
+    '            TagQtyOption = 0
+    '        End If
+
+    '    Else
+    '        TagQtyOption = 0
+    '    End If
+
+
+    '    Return TagQtyOption
+
+    'End Function
+
+    Protected Sub chkcancel_CheckedChanged(sender As Object, e As System.EventArgs) Handles chkcancel.CheckedChanged
+
+        If chkcancel.Checked = True Then
+
+            For Each Row As GridViewRow In GridFraction.Rows
+                Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+                SelectCheckBox.Enabled = True
+                SelectCheckBox.Checked = False
+            Next
+
+            'btnConfirm.Enabled = True
+
+        ElseIf chkcancel.Checked = False Then
+
+            For Each Row As GridViewRow In GridFraction.Rows
+                Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+                SelectCheckBox.Enabled = False
+                SelectCheckBox.Checked = False
+            Next
+
+            'btnConfirm.Enabled = False
+
+        End If
+
+
+    End Sub
+
+    Protected Sub btnConfirm_Click(sender As Object, e As System.EventArgs) Handles btnConfirm.Click
+
+        Try
+            If chkcancel.Checked = True Then
+
+                For Each Row As GridViewRow In GridFraction.Rows
+                    Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+
+                    SelectCheckBox.Enabled = True
+
+                    If SelectCheckBox.Checked = False Then
+
+                        Dim Parameter As String = ""
+                        Dim oInvoke As Object
+
+                        Parameter = "<Parameters><Parameter>" & Row.Cells(10).Text & "</Parameter>"
+                        Parameter &= "<Parameter>" & JobStartTextBox.Text & "</Parameter></Parameters>"
+
+                        oWS = New SLWebServices.DOWebServiceSoapClient
+                        oInvoke = oWS.CallMethod(Session("Token").ToString, "PPCC_tmp_fractiontags", "PPCC_CancelBookingFracrionSp", Parameter)
+
+                        'MsgBox(Row.Cells(10).Text)
+                    End If
+
+                Next
+
+                Dim Parms As String = ""
+                Dim oInvoke1 As Object
+
+                Parms = "<Parameters><Parameter>" & JobStartTextBox.Text & "</Parameter>"
+                Parms &= "<Parameter>" & SuffixStartTextBox.Text & "</Parameter></Parameters>"
+
+                oWS = New SLWebServices.DOWebServiceSoapClient
+                oInvoke1 = oWS.CallMethod(Session("Token").ToString, "PPCC_tmp_fractiontags", "PPCC_ConfirmCancelBookingTagSp", Parms)
+
+                Call CheckNewOrReprint()
+
+                GridFraction.DataSource = Nothing
+                GridFraction.DataBind()
+
+                GridSumFraction.DataSource = Nothing
+                GridSumFraction.DataBind()
+
+
+
+            Else
+
+                NotPassNotifyPanel.Visible = True
+                NotPassText.Text = "กรุณาเลือกยกเลิกจองเศษก่อน Confirm!!!"
+
+            End If
+        Catch ex As Exception
+            NotPassNotifyPanel.Visible = True
+            NotPassText.Text = ex.Message
+        End Try
+
+    End Sub
+
+
+    'Protected Sub Button2_Click(sender As Object, e As System.EventArgs) Handles Button2.Click
+    '    Dim fractionLoc As String = ""
+    '    fractionLoc = GetFractionLoc()
+    '    MsgBox(fractionLoc)
+    'End Sub
+End Class

@@ -1,0 +1,235 @@
+﻿Imports System.Globalization
+
+Partial Class oee
+    Inherits System.Web.UI.Page
+    Dim oWS As SLWebServices.DOWebServiceSoapClient
+
+    Protected Sub Page_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+        If Session("Token") Is Nothing Then
+            Response.Redirect("signin.aspx")
+        Else
+            If Session("Token").ToString = "" Then
+                Response.Redirect("signin.aspx")
+            End If
+        End If
+
+        'Verify Employee
+        If Session("Employee") Is Nothing Then
+            Response.Redirect("default.aspx")
+        Else
+            If Session("Employee").ToString = "" Then
+                Response.Redirect("default.aspx")
+            End If
+        End If
+
+        If Session("CanAccessOEE") <> "1" Then Response.Redirect("default.aspx")
+
+        If Not Page.IsPostBack Then
+            Call LoadCriteria()
+
+            Dim en As New CultureInfo("en-US")
+
+            'DateStartingTextBox.Text = Now.Date.ToString("dd/MM/yyyy", en)
+            'DateEndingTextBox.Text = Now.Date.ToString("dd/MM/yyyy", en)
+            'DateHiddenField.Value = Now.Date.ToString("dd/MM/yyyy", en)
+        End If
+    End Sub
+
+    Sub LoadCriteria()
+        Call LoadProductionLine()
+        Call LoadResource()
+        Call LoadWorkCenter()
+        Call LoadJob()
+        Call LoadItem()
+        Call LoadShiftCode()
+        Call LoadEmployeeUser()
+    End Sub
+
+    '1. Load Production Line
+    Sub LoadProductionLine()
+        Dim Filter As String = ""
+        Dim ds As Data.DataSet
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = New Data.DataSet
+        ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Prod_Lines", "line", "", "line", "", 0)
+
+        For Each dRow As Data.DataRow In ds.Tables(0).DefaultView.ToTable(True, "line").Rows
+            LineStartingDropDown.Items.Add(New ListItem(dRow("line"), dRow("line")))
+            LineEndingDropDown.Items.Add(New ListItem(dRow("line"), dRow("line")))
+        Next
+        LineStartingDropDown.Items.Insert(0, New ListItem("", ""))
+        LineEndingDropDown.Items.Insert(0, New ListItem("", ""))
+    End Sub
+
+    '2. Load Resource
+    Sub LoadResource()
+        Dim ds As Data.DataSet
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = New Data.DataSet
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLApsRes", "RESID, DESCR", "", "RESID", "", 0)
+        For Each dRow As Data.DataRow In ds.Tables(0).Rows
+            ResourceStartingDropDown.Items.Add(New ListItem(dRow("RESID") & " -- " & dRow("DESCR"), dRow("RESID")))
+            ResourceEndingDropDown.Items.Add(New ListItem(dRow("RESID") & " -- " & dRow("DESCR"), dRow("RESID")))
+        Next
+        ResourceStartingDropDown.Items.Insert(0, New ListItem("", ""))
+        ResourceEndingDropDown.Items.Insert(0, New ListItem("", ""))
+    End Sub
+
+    '3. Load Work Center
+    Sub LoadWorkCenter()
+        Dim ds As Data.DataSet
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = New Data.DataSet
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLWcs", "Wc, Description", "", "Wc", "", 0)
+        For Each dRow As Data.DataRow In ds.Tables(0).Rows
+            WcStartingDropDown.Items.Add(New ListItem(dRow("Description"), dRow("Wc")))
+            WcEndingDropDown.Items.Add(New ListItem(dRow("Description"), dRow("Wc")))
+        Next
+        WcStartingDropDown.Items.Insert(0, New ListItem("", ""))
+        WcEndingDropDown.Items.Insert(0, New ListItem("", ""))
+    End Sub
+
+    '4. Load Job Order
+    Sub LoadJob()
+
+        Dim ds As Data.DataSet
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = New Data.DataSet
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobs", "Job", "Type = 'J' And Suffix= 0", "Job", "", 0)
+        For Each dRow As Data.DataRow In ds.Tables(0).Rows
+            JobStartingDropDown.Items.Add(New ListItem(dRow("Job"), dRow("Job")))
+            JobEndingDropDown.Items.Add(New ListItem(dRow("Job"), dRow("Job")))
+        Next
+        JobStartingDropDown.Items.Insert(0, New ListItem("", ""))
+        JobEndingDropDown.Items.Insert(0, New ListItem("", ""))
+    End Sub
+
+    '5. Load Item
+    Sub LoadItem()
+        Dim ds As Data.DataSet
+
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = New Data.DataSet
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLItems", "Item", "", "Item", "", 0)
+        For Each dRow As Data.DataRow In ds.Tables(0).Rows
+            ItemStartingDropDown.Items.Add(New ListItem(dRow("Item"), dRow("Item")))
+            ItemEndingDropDown.Items.Add(New ListItem(dRow("Item"), dRow("Item")))
+        Next
+        ItemStartingDropDown.Items.Insert(0, New ListItem("", ""))
+        ItemEndingDropDown.Items.Insert(0, New ListItem("", ""))
+
+    End Sub
+
+    '6. Load Shift
+    Sub LoadShiftCode()
+        Dim Filter As String = ""
+        Dim ds As Data.DataSet
+
+        'Load Shift Code
+        ds = New Data.DataSet
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "SLShifts", "Shift, EffDate", "", "Shift", "", 0)
+        For Each dRow As Data.DataRow In ds.Tables(0).Rows
+            ShiftStartingDropDown.Items.Add(New ListItem(dRow("Shift"), dRow("Shift")))
+            ShiftEndingDropDown.Items.Add(New ListItem(dRow("Shift"), dRow("Shift")))
+        Next
+        ShiftStartingDropDown.Items.Insert(0, New ListItem("", "0"))
+        ShiftEndingDropDown.Items.Insert(0, New ListItem("", "0"))
+    End Sub
+
+    '7. Load Employee
+    Sub LoadEmployeeUser()
+        Dim Filter As String = ""
+        Dim ds As Data.DataSet
+
+        Filter = "UserName='" & Session("UserName").ToString & "'"
+        ds = New Data.DataSet
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Users", "EmpNum, EmpName", Filter, "EmpNum", "", 0)
+        For Each dRow As Data.DataRow In ds.Tables(0).Rows
+            UserDropDown.Items.Add(New ListItem(dRow("EmpNum") & " -- " & dRow("EmpName"), dRow("EmpNum")))
+        Next
+        UserDropDown.Items.Insert(0, New ListItem("", ""))
+
+        If Session("Employee") IsNot Nothing Then
+            If Session("Employee").ToString <> "" Then
+                Dim ListItem As ListItem = UserDropDown.Items.FindByValue(Session("Employee").ToString)
+                If ListItem IsNot Nothing Then
+                    UserDropDown.SelectedValue = Session("Employee").ToString
+                End If
+            End If
+        End If
+
+    End Sub
+
+    Protected Sub PreviewButton_Click(sender As Object, e As System.EventArgs) Handles PreviewButton.Click
+
+        Dim Parms As String = "<Parameters><Parameter>" & Session("UserName").ToString & "</Parameter>" & _
+                                "<Parameter>" & UserDropDown.SelectedValue & "</Parameter>" & _
+                                "<Parameter>" & LineStartingDropDown.SelectedValue & "</Parameter>" & _
+                                "<Parameter>" & LineEndingDropDown.SelectedValue & "</Parameter>" & _
+                                "<Parameter>" & ResourceStartingDropDown.SelectedValue & "</Parameter>" & _
+                                "<Parameter>" & ResourceEndingDropDown.SelectedValue & "</Parameter>" &
+                                "<Parameter>" & WcStartingDropDown.SelectedValue & "</Parameter>" & _
+                                "<Parameter>" & WcEndingDropDown.SelectedValue & "</Parameter>" & _
+                                "<Parameter>" & JobStartingDropDown.SelectedValue & "</Parameter>" & _
+                                "<Parameter>" & JobEndingDropDown.SelectedValue & "</Parameter>" & _
+                                "<Parameter>" & ItemStartingDropDown.SelectedValue & "</Parameter>" & _
+                                "<Parameter>" & ItemEndingDropDown.SelectedValue & "</Parameter>" & _
+                                "<Parameter>" & DateStartingTextBox.Text & "</Parameter>" & _
+                                "<Parameter>" & DateEndingTextBox.Text & "</Parameter>" & _
+                                "<Parameter>" & ShiftStartingDropDown.SelectedValue & "</Parameter>" & _
+                                "<Parameter>" & ShiftEndingDropDown.SelectedValue & "</Parameter></Parameters>"
+
+        Dim res As Object
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        res = oWS.CallMethod(Session("Token").ToString, "PPCC_OEETemp", "PPCC_PreviewOEESummarySp", Parms)
+
+        If res = "0" Then
+            Dim PropertyList As String = "TransDate, Resource, Shift, Job, OperNum, Item, Description, UM, QtyComplete, QtyScrapped, ScrappedPercent, TotalDT, PNT, RPS, US, Remark, ResourceDescription, WcDescription"
+            Dim ds As Data.DataSet
+            Dim Filter As String = "UserName = '" & Session("UserName").ToString & "' And EmpNum= '" & Session("Employee").ToString & "'"
+            oWS = New SLWebServices.DOWebServiceSoapClient
+
+            ds = New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_OEETemp", PropertyList, Filter, "Seq", "", 0)
+
+            OEEGridView.DataSource = ds.Tables(0)
+            OEEGridView.DataBind()
+        Else
+            OEEGridView.DataSource = Nothing
+            OEEGridView.DataBind()
+        End If
+
+    End Sub
+
+    Protected Sub ClearButton_Click(sender As Object, e As System.EventArgs) Handles ClearButton.Click
+
+    End Sub
+
+    Protected Sub ExportButton_Click(sender As Object, e As System.EventArgs) Handles ExportButton.Click
+        OEEExport.UserName = Session("UserName").ToString
+        OEEExport.Employee = UserDropDown.SelectedValue
+        OEEExport.LineStarting = LineStartingDropDown.SelectedValue
+        OEEExport.LineEnding = LineEndingDropDown.SelectedValue
+        OEEExport.ResourceStarting = ResourceStartingDropDown.SelectedValue
+        OEEExport.ResourceEnding = ResourceEndingDropDown.SelectedValue
+        OEEExport.WcStarting = WcStartingDropDown.SelectedValue
+        OEEExport.WcEnding = WcEndingDropDown.SelectedValue
+        OEEExport.JobStarting = JobStartingDropDown.SelectedValue
+        OEEExport.JobEnding = JobEndingDropDown.SelectedValue
+        OEEExport.ItemStarting = ItemStartingDropDown.SelectedValue
+        OEEExport.ItemEnding = ItemEndingDropDown.SelectedValue
+        OEEExport.DateStarting = DateStartingTextBox.Text
+        OEEExport.DateEnding = DateEndingTextBox.Text
+        OEEExport.ShiftStarting = ShiftStartingDropDown.SelectedValue
+        OEEExport.ShiftEnding = ShiftEndingDropDown.SelectedValue
+
+        Response.Redirect("oee_export.aspx")
+    End Sub
+
+End Class

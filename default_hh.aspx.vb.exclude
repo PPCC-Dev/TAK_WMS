@@ -1,0 +1,143 @@
+﻿
+Partial Class default_hh
+    Inherits System.Web.UI.Page
+    Dim oWS As SLWebServices.DOWebServiceSoapClient
+
+    Protected Sub QtyMoveButton_Click(sender As Object, e As System.EventArgs) Handles QtyMoveButton.Click
+        Response.Redirect("qt_move_hh.aspx")
+    End Sub
+
+    Protected Sub Page_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+        If Session("Token") Is Nothing Then
+            Response.Redirect("signin_hh.aspx")
+        Else
+            If Session("Token").ToString = "" Then
+                Response.Redirect("signin_hh.aspx")
+            End If
+        End If
+
+        EmployeeDropDown.Enabled = True
+        OKButton.Enabled = True
+
+        If Not Page.IsPostBack Then
+            Call LoadEmployee()
+
+            Session("CanAccessInternalQtMove") = "0"
+            Session("CanAccessWhseQtMove") = "0"
+            Session("CanAccessCycleCount") = "0"
+            Session("CanAccessJobMatl") = "0"
+            Session("CanAccessOEE") = "0"
+            Session("CanAccessOrderShip") = "0"
+            Session("CanAccessPrintTag") = "0"
+            Session("CanAccessUnposted") = "0"
+
+            Dim ds As New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+
+            Dim PropertyList As String = "UserNamesUf_UserNames_IntQtMove, UserNamesUf_UserNames_ExtQtMove, "
+            PropertyList &= "UserNamesUf_UserNames_JobMatl, UserNamesUf_UserNames_OrdShipping, "
+            PropertyList &= "UserNamesUf_UserNames_Unposted, UserNamesUf_UserNames_PrintTag, "
+            PropertyList &= "UserNamesUf_UserNames_CycleCount, UserNamesUf_UserNames_OEESummary"
+
+            Dim Filter As String = "Username='" & Session("UserName").ToString & "'"
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_UserNames", PropertyList, Filter, "", "", 0)
+
+            If ds.Tables(0).Rows.Count > 0 Then
+                If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_IntQtMove") IsNot DBNull.Value Then
+                    If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_IntQtMove").ToString = "1" Then
+                        Session("CanAccessInternalQtMove") = "1"
+                    End If
+                End If
+                If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_ExtQtMove") IsNot DBNull.Value Then
+                    If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_ExtQtMove").ToString = "1" Then
+                        Session("CanAccessWhseQtMove") = "1"
+                    End If
+                End If
+                If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_JobMatl") IsNot DBNull.Value Then
+                    If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_JobMatl").ToString = "1" Then
+                        Session("CanAccessJobMatl") = "1"
+                    End If
+                End If
+                If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_OrdShipping") IsNot DBNull.Value Then
+                    If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_OrdShipping").ToString = "1" Then
+                        Session("CanAccessOrderShip") = "1"
+                    End If
+                End If
+                If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_Unposted") IsNot DBNull.Value Then
+                    If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_Unposted").ToString = "1" Then
+                        Session("CanAccessUnposted") = "1"
+                    End If
+                End If
+                If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_PrintTag") IsNot DBNull.Value Then
+                    If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_PrintTag").ToString = "1" Then
+                        Session("CanAccessPrintTag") = "1"
+                    End If
+                End If
+                If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_CycleCount") IsNot DBNull.Value Then
+                    If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_CycleCount").ToString = "1" Then
+                        Session("CanAccessCycleCount") = "1"
+                    End If
+                End If
+                If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_OEESummary") IsNot DBNull.Value Then
+                    If ds.Tables(0).Rows(0)("UserNamesUf_UserNames_OEESummary").ToString = "1" Then
+                        Session("CanAccessOEE") = "1"
+                    End If
+                End If
+
+            End If
+
+            QtyMoveButton.Visible = Session("CanAccessInternalQtMove")
+            JobMatlButton.Visible = Session("CanAccessJobMatl")
+            OrderShippingButton.Visible = Session("CanAccessOrderShip")
+            CycleCountUpdateButton.Visible = Session("CanAccessCycleCount")
+
+
+            If Session("Employee") IsNot Nothing Then
+                If Session("Employee").ToString <> "" Then
+                    Dim ListItem As ListItem = EmployeeDropDown.Items.FindByValue(Session("Employee").ToString)
+                    If ListItem IsNot Nothing Then
+                        EmployeeDropDown.SelectedValue = Session("Employee").ToString
+                    End If
+                End If
+            End If
+        End If
+    End Sub
+
+    Protected Sub JobMatlButton_Click(sender As Object, e As System.EventArgs) Handles JobMatlButton.Click
+        Response.Redirect("jobmatl_hh.aspx")
+    End Sub
+
+    Sub LoadEmployee()
+        EmployeeDropDown.Items.Clear()
+        Dim Filter As String = ""
+        'Load Employee
+        Dim ds As Data.DataSet
+        Filter = "UserName='" & Session("UserName").ToString & "'"
+        ds = New Data.DataSet
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Users", "EmpNum, EmpName", Filter, "EmpNum", "", 0)
+        For Each dRow As Data.DataRow In ds.Tables(0).Rows
+            EmployeeDropDown.Items.Add(New ListItem(dRow("EmpNum") & " -- " & dRow("EmpName"), dRow("EmpNum")))
+        Next
+        EmployeeDropDown.Items.Insert(0, New ListItem("++++ เลือกพนักงาน ++++", ""))
+    End Sub
+
+    Protected Sub OKButton_Click(sender As Object, e As System.EventArgs) Handles OKButton.Click
+        If EmployeeDropDown.SelectedValue <> "" Then
+            Session("Employee") = EmployeeDropDown.SelectedValue
+        End If
+    End Sub
+
+    Protected Sub SignOutButton_Click(sender As Object, e As System.EventArgs) Handles SignOutButton.Click
+        Session.Abandon()
+        Response.Redirect("signin_hh.aspx")
+    End Sub
+
+    Protected Sub OrderShippingButton_Click(sender As Object, e As System.EventArgs) Handles OrderShippingButton.Click
+        Response.Redirect("OrderShipping.aspx")
+    End Sub
+
+    Protected Sub CycleCountUpdateButton_Click(sender As Object, e As System.EventArgs) Handles CycleCountUpdateButton.Click
+        Response.Redirect("CycleCountUpdate.aspx")
+    End Sub
+End Class

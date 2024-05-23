@@ -1,0 +1,754 @@
+﻿Imports System.Xml
+Imports System.Globalization
+
+Partial Class jobmatl_hh
+    Inherits System.Web.UI.Page
+    Dim oWS As SLWebServices.DOWebServiceSoapClient
+
+    Private _Jobs As Data.DataSet
+    Private _JobMatlData As Data.DataSet
+    Private _JobMatlTagData As Data.DataSet
+
+    Private _Job As String
+    Private _Suffix As String
+    Private _OperNum As String
+
+    Private Property Job As String
+        Get
+            Return _Job
+        End Get
+        Set(value As String)
+            _Job = value
+        End Set
+    End Property
+
+    Private Property Suffix As String
+        Get
+            Return _Suffix
+        End Get
+        Set(value As String)
+            _Suffix = value
+        End Set
+    End Property
+
+    Private Property OperNum As String
+        Get
+            Return _OperNum
+        End Get
+        Set(value As String)
+            _OperNum = value
+        End Set
+    End Property
+
+    Private Property Jobs As Data.DataSet
+        Get
+            Return _Jobs
+        End Get
+        Set(value As Data.DataSet)
+            _Jobs = value
+        End Set
+    End Property
+
+    Private Property JobMatlData As Data.DataSet
+        Get
+            Return _JobMatlData
+        End Get
+        Set(value As Data.DataSet)
+            _JobMatlData = value
+        End Set
+    End Property
+
+    Private Property JobMatlTagData As Data.DataSet
+        Get
+            Return _JobMatlTagData
+        End Get
+        Set(value As Data.DataSet)
+            _JobMatlTagData = value
+        End Set
+    End Property
+
+    Protected Sub EmployeeDropDown_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles EmployeeDropDown.SelectedIndexChanged
+
+    End Sub
+
+    Sub LoadEmployeeUser()
+        Try
+            Literal1.Text = ""
+            EmployeeDropDown.Items.Clear()
+            Dim Filter As String = ""
+
+            'Load Employee User
+            Dim ds As Data.DataSet
+            Filter = "UserName='" & Session("UserName").ToString & "'"
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Users", "EmpNum, EmpName", Filter, "EmpNum", "", 0)
+            For Each dRow As Data.DataRow In ds.Tables(0).Rows
+                EmployeeDropDown.Items.Add(New ListItem(dRow("EmpNum") & " -- " & dRow("EmpName"), dRow("EmpNum")))
+            Next
+            EmployeeDropDown.Items.Insert(0, New ListItem("", ""))
+
+            If Session("Employee") IsNot Nothing Then
+                If Session("Employee").ToString <> "" Then
+                    Dim ListItem As ListItem = EmployeeDropDown.Items.FindByValue(Session("Employee").ToString)
+                    If ListItem IsNot Nothing Then
+                        EmployeeDropDown.SelectedValue = Session("Employee").ToString
+                    End If
+                End If
+            End If
+        Catch ex As Exception
+            Literal1.Text = "LoadEmployeeUser() <br />" & ex.Message
+        End Try
+
+    End Sub
+
+    'Load User Info.
+    Sub LoadUserInfo()
+        Try
+            Literal1.Text = ""
+
+            Dim ds As Data.DataSet
+            Dim PropertyList As String = ""
+            Dim Filter As String = ""
+            Dim UserId As Decimal
+
+            Filter = "Username='" & Session("UserName").ToString & "'"
+            PropertyList = "UserId, UserNamesUf_UserNames_Whse"
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_UserNames", PropertyList, Filter, "", "", 0)
+            If ds.Tables(0).Rows.Count > 0 Then
+                UserId = ds.Tables(0).Rows(0)("UserId").ToString
+            End If
+
+            Filter = "UserId='" & UserId & "'"
+            PropertyList = "UserCode, Whse"
+            ds = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLUserLocals", PropertyList, Filter, "", "", 0)
+            If ds.Tables(0).Rows.Count > 0 Then
+                WhseTextBox.Text = ds.Tables(0).Rows(0)("Whse").ToString
+            End If
+        Catch ex As Exception
+            Literal1.Text = "LoadUserInfo() <br />" & ex.Message
+        End Try
+
+    End Sub
+
+    Protected Sub Page_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+        Try
+            Literal1.Text = ""
+            'Verify Token
+            If Session("Token") Is Nothing Then
+                Response.Redirect("signin_hh.aspx")
+            Else
+                If Session("Token").ToString = "" Then
+                    Response.Redirect("signin_hh.aspx")
+                End If
+            End If
+
+            'Verify Employee
+            If Session("Employee") Is Nothing Then
+                Response.Redirect("default_hh.aspx")
+            Else
+                If Session("Employee").ToString = "" Then
+                    Response.Redirect("default_hh.aspx")
+                End If
+            End If
+
+            If Not Page.IsPostBack Then
+                Dim en As New CultureInfo("en-US")
+                TransDateTextBox.Text = Now.Date.ToString("dd/MM/yyyy", en)
+
+                Call LoadJob()
+                Call LoadUserInfo()
+                Call LoadEmployeeUser()
+
+                BarCodeJobTextBox.Focus()
+            Else
+                Call LoadJob()
+            End If
+        Catch ex As Exception
+            Literal1.Text = "Page_Load() <br />" & ex.Message
+        End Try
+    End Sub
+
+    Protected Sub ClearButton_Click(sender As Object, e As System.EventArgs) Handles ClearButton.Click
+        Try
+            Literal1.Text = ""
+            JobDropDown.SelectedValue = ""
+            JobDropDown_SelectedIndexChanged(ClearButton, EventArgs.Empty)
+            ReturnCheckBox.Enabled = True
+            ReturnCheckBox.Checked = False
+            BarCodeJobTextBox.Focus()
+        Catch ex As Exception
+            Literal1.Text = "ClearButton_Click() <br />" & ex.Message
+        End Try
+
+    End Sub
+
+    '2. Load Job Orders
+    Sub LoadJob()
+        Try
+            Literal1.Text = ""
+            Dim LastSelectedJob As String = JobDropDown.SelectedValue
+            Dim Filter As String = ""
+            Dim FirstRow As Data.DataRow
+
+            Jobs = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+
+            'Load Job Orders
+            JobDropDown.Items.Clear()
+            Jobs = oWS.LoadDataSet(Session("Token").ToString, "SLJobs", "Job, Item, Description, Whse", "Stat = 'R' And Type = 'J'", "Job", "", 0)
+            For Each dRow As Data.DataRow In Jobs.Tables(0).Rows
+                JobDropDown.Items.Add(New ListItem(dRow("Job"), dRow("Job")))
+                'ListBox1.Items.Add(dRow("Job"))
+            Next
+
+            FirstRow = Jobs.Tables(0).NewRow
+            FirstRow("Job") = ""
+            FirstRow("Item") = ""
+            FirstRow("Description") = ""
+            Jobs.Tables(0).Rows.InsertAt(FirstRow, 0)
+            JobDropDown.Items.Insert(0, New ListItem("", ""))
+
+            Dim lst_item As ListItem = JobDropDown.Items.FindByValue(LastSelectedJob)
+            If lst_item IsNot Nothing Then
+                JobDropDown.SelectedValue = LastSelectedJob
+            End If
+        Catch ex As Exception
+            Literal1.Text = "LoadJob() <br />" & ex.Message
+        End Try
+
+    End Sub
+
+    Sub BindOperationAndWc(ByVal default_wc As String)
+        Try
+            Literal1.Text = ""
+            WcDropDown.Items.Clear()
+
+            Dim ds As New Data.DataSet
+            Dim Filter As String = "Job='" & JobDropDown.SelectedValue & "' And Suffix=" & SuffixTextBox.Text
+            oWS = New SLWebServices.DOWebServiceSoapClient
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobRoutes", "OperNum, Wc, WcDescription", Filter, "OperNum", "", 0)
+            For Each dRow As Data.DataRow In ds.Tables(0).Rows
+                WcDropDown.Items.Add(New ListItem(dRow("OperNum") _
+                                                         & " -- " & dRow("Wc"), dRow("OperNum")))
+            Next
+
+            Dim list_item As ListItem = WcDropDown.Items.FindByValue(default_wc)
+            If list_item IsNot Nothing Then
+                WcDropDown.SelectedValue = default_wc
+            End If
+        Catch ex As Exception
+            Literal1.Text = "BindOperationAndWc() <br />" & ex.Message
+        End Try
+
+    End Sub
+
+    Protected Sub JobDropDown_SelectedIndexChanged(sender As Object, e As System.EventArgs) Handles JobDropDown.SelectedIndexChanged
+
+        Try
+            Literal1.Text = ""
+            Call LoadJobMatl(JobDropDown.SelectedValue, "")
+            Call BindGrid(ReturnCheckBox.Checked, JobDropDown.SelectedValue, SuffixTextBox.Text, "")
+
+            BarCodeMatlTextBox.Focus()
+        Catch ex As Exception
+            Literal1.Text = "JobDropDown_SelectedIndexChanged() <br />" & ex.Message
+        End Try
+
+    End Sub
+
+    Sub LoadJobMatl(ByVal job As String, ByVal wc As String)
+        Try
+            Literal1.Text = ""
+            JobDropDown.SelectedValue = job
+
+            ItemTextBox.Text = Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("Item").ToString
+            ItemDescriptionTextBox.Text = Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("Description").ToString
+            JobWhseHiddenField.Value = Jobs.Tables(0).Rows(JobDropDown.SelectedIndex)("Whse").ToString
+
+            Call ValidateJob()
+            Call BindOperationAndWc(wc)
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Dim oResult As Object
+            Dim Parms As String = "<Parameters><Parameter>" & Session("Config") & "</Parameter>" & _
+                "<Parameter>" & JobDropDown.SelectedValue & "</Parameter>" & _
+                "<Parameter>" & SuffixTextBox.Text & "</Parameter>" & _
+                "<Parameter>" & String.Empty & "</Parameter>" & _
+                "<Parameter>" & String.Empty & "</Parameter>" & _
+                "<Parameter>" & String.Empty & "</Parameter>" & _
+                "<Parameter>" & String.Empty & "</Parameter>" & _
+                "<Parameter>" & "1" & "</Parameter>" & _
+                "<Parameter>" & WhseTextBox.Text & "</Parameter>" & _
+                "<Parameter>" & "0" & "</Parameter>" & _
+                "<Parameter>" & String.Empty & "</Parameter>" & _
+                "<Parameter>" & Session("UserName").ToString & "</Parameter>" & _
+                "<Parameter>" & EmployeeDropDown.SelectedValue & "</Parameter>" & _
+                "<Parameter ByRef='Y'>" & String.Empty & "</Parameter></Parameters>"
+
+            oResult = oWS.CallMethod(Session("Token").ToString, "PPCC_JobMatlTemps", "PPCC_WSLoadJobMatlSp", Parms)
+
+            Dim Filter As String = "EmpNum='" & Session("Employee").ToString & "'"
+            Dim PropertyList As String = "Item, Description, UM, Lot, QtyConv, ReqQtyConv, Loc, RowPointer, Job, Suffix, OperNum, Sequence"
+            JobMatlData = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            JobMatlData = oWS.LoadDataSet(Session("Token").ToString, "PPCC_JobMatlTemps", PropertyList, Filter, "Job, Suffix, OperNum, Sequence", "", 0)
+
+            If JobMatlData.Tables(0).Rows.Count = 0 Then
+                'Literal1.Text = "(" & JobMatlData.Tables(0).Rows.Count.ToString & ") list of materials."
+            Else
+                'Literal1.Text = ""
+            End If
+            TransactionCountLabel.Text = JobMatlData.Tables(0).Rows.Count.ToString & " Transaction(s)"
+            JobMatlTagData = New Data.DataSet
+
+        Catch ex As Exception
+            Literal1.Text = "LoadJobMatl() <br />" & ex.Message
+        End Try
+
+    End Sub
+
+    Sub BindGrid(ByVal return_tag As Boolean, ByVal job As String, ByVal suffix As String, ByVal wc As String)
+        Try
+            Literal1.Text = ""
+            Dim return_filter As String = ""
+            If return_tag Then
+                return_filter = " And Issued = 1 And Returned = 0 "
+            Else
+                return_filter = " And Issued = 0 And Returned = 0 "
+            End If
+
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Dim Filter As String = ""
+            Filter = "Job= '" & JobDropDown.SelectedValue & "' " & return_filter
+            Dim PropList As String = "TagID, Item, Description, UM, Lot, QtyConv, ReqQtyConv, DerQtyIssuedConv, Loc, RowPointer, Sequence, DerQtyConv"
+            'Dim ds As New Data.DataSet
+            JobMatlTagData = oWS.LoadDataSet(Session("Token").ToString, "PPCC_JobMatlTrans", PropList, Filter, "OperNum, Sequence", "", 0)
+
+            JobMatlGridView.DataSource = JobMatlTagData.Tables(0)
+            JobMatlGridView.DataBind()
+
+            BarCodeMatlTextBox.Focus()
+
+            Call LoadJobMatl(JobDropDown.SelectedValue, "")
+
+        Catch ex As Exception
+            Literal1.Text = "BindGrid() <br />" & ex.Message
+        End Try
+    End Sub
+
+    Protected Sub ProcessButton_Click(sender As Object, e As System.EventArgs) Handles ProcessButton.Click
+        Try
+            Literal1.Text = ""
+            For Each Row As GridViewRow In JobMatlGridView.Rows
+                Dim RowPointerLabel As Label = DirectCast(Row.FindControl("RowPointerLabel"), Label)
+                Dim SelectCheckBox As CheckBox = DirectCast(Row.FindControl("SelectCheckBox"), CheckBox)
+                Dim QtyLabel As Label = DirectCast(Row.FindControl("QtyLabel"), Label)
+
+                If SelectCheckBox.Checked And Convert.ToDouble(QtyLabel.Text) <> 0 Then
+                    oWS = New SLWebServices.DOWebServiceSoapClient
+                    Dim oResult As Object
+                    Dim Parms As String = "<Parameters><Parameter>" & WhseTextBox.Text & "</Parameter>" & _
+                        "<Parameter>" & TransDateTextBox.Text & "</Parameter>" & _
+                        "<Parameter>" & RowPointerLabel.Text & "</Parameter>" & _
+                        "<Parameter>" & String.Empty & "</Parameter>" & _
+                        "<Parameter>" & IIf(ReturnCheckBox.Checked, "1", "0") & "</Parameter></Parameters>"
+
+                    oResult = oWS.CallMethod(Session("Token").ToString, "PPCC_JobMatlTrans", "PPCC_WSProcessJobMatlSp", Parms)
+
+                    Dim doc As XmlDocument = New XmlDocument()
+                    doc.LoadXml(Parms)
+                    Dim i As Integer = 1
+
+                    For Each node As XmlNode In doc.DocumentElement
+                        If i = 4 And Trim(node.InnerText) <> "" Then 'PromptMessage
+                            Literal1.Text &= node.InnerText & "<br />"
+                        End If
+                        i += 1
+                    Next
+                End If
+            Next
+
+            ReturnCheckBox.Checked = False
+            ReturnCheckBox.Enabled = True
+
+            CancelTagCheckBox.Checked = False
+            CancelTagCheckBox.Enabled = True
+
+            'Call BindGrid(ReturnCheckBox.Checked, JobDropDown.SelectedValue, SuffixTextBox.Text, WcDropDown.SelectedValue)
+            Literal1.Text = ""
+            JobDropDown.SelectedValue = ""
+            JobDropDown_SelectedIndexChanged(ClearButton, EventArgs.Empty)
+
+            BarCodeJobTextBox.Focus()
+
+        Catch ex As Exception
+            Literal1.Text = "ProcessButton_Click<br />" & ex.Message
+        End Try
+    End Sub
+
+    Protected Sub MainMenuButton_Click(sender As Object, e As System.EventArgs) Handles MainMenuButton.Click
+        Response.Redirect("default_hh.aspx")
+    End Sub
+
+    Protected Sub SignOutButton_Click(sender As Object, e As System.EventArgs) Handles SignOutButton.Click
+        Session.Abandon()
+        Response.Redirect("signin_hh.aspx")
+    End Sub
+
+    Protected Sub BarCodeJobTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles BarCodeJobTextBox.TextChanged
+        Try
+            Literal1.Text = ""
+            Dim job As String = ""
+            Dim suffix As String = ""
+            Dim wc As String = ""
+            If Trim(BarCodeJobTextBox.Text) <> "" Then
+                Dim StrBarcode() As String = BarCodeJobTextBox.Text.Split("-"c)
+                If StrBarcode.Length = 3 Then 'Job + Suffix + Oper
+                    Dim ListItem As ListItem
+                    ListItem = JobDropDown.Items.FindByValue(StrBarcode(0))
+                    If Not ListItem Is Nothing Then
+                        job = StrBarcode(0)
+                        suffix = Right("000" & StrBarcode(1), 4)
+                        wc = StrBarcode(2)
+
+                    Else
+                        JobDropDown.SelectedIndex = 0
+                    End If
+                End If
+
+                BarCodeJobTextBox.Text = ""
+
+                Call LoadJobMatl(job, wc)
+                Call BindGrid(ReturnCheckBox.Checked, job, suffix, wc)
+            End If
+        Catch ex As Exception
+            Literal1.Text = "BarCodeJobTextBox_TextChanged() <br />" & ex.Message
+        End Try
+    End Sub
+
+    Protected Sub BarCodeMatlTextBox_TextChanged(sender As Object, e As System.EventArgs) Handles BarCodeMatlTextBox.TextChanged
+        Try
+            Literal1.Text = ""
+            If Trim(BarCodeMatlTextBox.Text) <> "" Then
+                If CancelTagCheckBox.Checked Then
+                    For Each DRow As GridViewRow In JobMatlGridView.Rows
+                        Dim grd_rowpointer_label As Label = DirectCast(DRow.FindControl("RowPointerLabel"), Label)
+                        Dim grd_tag_label As Label = DirectCast(DRow.FindControl("TagIDLabel"), Label)
+                        If Trim(grd_tag_label.Text) = Trim(BarCodeMatlTextBox.Text) Then
+                            oWS = New SLWebServices.DOWebServiceSoapClient
+                            Dim oResult As Object
+                            Dim Parms As String = "<Parameters><Parameter>" & grd_rowpointer_label.Text & "</Parameter></Parameters>"
+                            oResult = oWS.CallMethod(Session("Token").ToString, "PPCC_JobMatlTrans", "PPCC_WSClearJobTransactionSp", Parms)
+                            CancelTagCheckBox.Checked = False
+                            BarCodeMatlTextBox.Text = ""
+                            Call BindGrid(ReturnCheckBox.Checked, JobDropDown.SelectedValue, SuffixTextBox.Text, WcDropDown.SelectedValue)
+                            Exit For
+                        End If
+                    Next
+                Else
+                    If ReturnCheckBox.Checked Then
+                        Call UpdateReturnTag()
+                    Else
+                        Call UpdateIssueTag()
+                    End If
+                End If
+
+
+            End If
+
+        Catch ex As Exception
+            Literal1.Text = "BarCodeMatlTextBox_TextChanged() <br />" & ex.Message
+        End Try
+    End Sub
+
+    Sub UpdateReturnTag()
+        Try
+            Literal1.Text = ""
+            Dim ds As New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Dim tag_qty As String = ""
+            Dim tag_lot As String = ""
+            Dim tag_item As String = ""
+
+            Dim Filter As String = "TagID = '" & BarCodeMatlTextBox.Text & "' And Stat= 'O'" 'Released, Moved, Pre-Issue
+            Dim PropertyList As String = "TagID, TagQty, Lot, Item"
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", PropertyList, Filter, "", "", 0)
+
+            If ds.Tables(0).Rows.Count > 0 Then
+                For Each DRow As GridViewRow In JobMatlGridView.Rows
+                    Dim grd_rowpointer_label As Label = DirectCast(DRow.FindControl("RowPointerLabel"), Label)
+                    Dim grd_item_label As Label = DirectCast(DRow.FindControl("ItemLabel"), Label)
+                    Dim grd_qty_label As Label = DirectCast(DRow.FindControl("QtyLabel"), Label)
+                    Dim grd_seq_label As Label = DirectCast(DRow.FindControl("SequenceLabel"), Label)
+                    Dim grd_tag_label As Label = DirectCast(DRow.FindControl("TagIDLabel"), Label)
+                    Dim grd_select As CheckBox = DirectCast(DRow.FindControl("SelectCheckBox"), CheckBox)
+
+                    If Trim(grd_tag_label.Text) = Trim(BarCodeMatlTextBox.Text) Then
+                        grd_select.Checked = Not grd_select.Checked
+                        oWS = New SLWebServices.DOWebServiceSoapClient
+                        Dim oResult As Object
+                        Dim Parms As String = "<Parameters><Parameter>" & Trim(BarCodeMatlTextBox.Text) & "</Parameter>" & _
+                            "<Parameter>" & grd_rowpointer_label.Text & "</Parameter>" & _
+                            "<Parameter>" & grd_qty_label.Text & "</Parameter>" & _
+                            "<Parameter>" & tag_lot & "</Parameter>" & _
+                            "<Parameter>" & Session("UserName").ToString & "</Parameter>" & _
+                            "<Parameter>" & EmployeeDropDown.SelectedValue & "</Parameter>" & _
+                            "<Parameter>" & JobDropDown.SelectedValue & "</Parameter>" & _
+                            "<Parameter>" & SuffixTextBox.Text & "</Parameter>" & _
+                            "<Parameter>" & WcDropDown.SelectedValue & "</Parameter>" & _
+                            "<Parameter>" & grd_seq_label.Text & "</Parameter>" & _
+                            "<Parameter>" & IIf(ReturnCheckBox.Checked, "1", "0") & "</Parameter>" & _
+                            "<Parameter>" & IIf(CancelTagCheckBox.Checked, "1", "0") & "</Parameter>" & _
+                            "<Parameter ByRef='Y'>" & String.Empty & "</Parameter></Parameters>"
+                        oResult = oWS.CallMethod(Session("Token").ToString, "PPCC_JobMatlTrans", "PPCC_JobMatlIssueByTagSp", Parms)
+                        Exit For
+
+                    End If
+                Next
+            End If
+
+            Call BindGrid(ReturnCheckBox.Checked, JobDropDown.SelectedValue, SuffixTextBox.Text, WcDropDown.SelectedValue)
+
+            CancelTagCheckBox.Checked = False
+            BarCodeMatlTextBox.Text = ""
+            BarCodeMatlTextBox.Focus()
+        Catch ex As Exception
+            Literal1.Text = "UpdateReturnTag() <br />" & ex.Message
+        End Try
+    End Sub
+
+    Sub UpdateIssueTag()
+        Try
+            Literal1.Text = ""
+            Dim ds As New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Dim TagQty As String = ""
+            Dim TagLot As String = ""
+            Dim TagItem As String = ""
+
+            Dim Filter As String = "TagID = '" & BarCodeMatlTextBox.Text & "' And Stat in ('R', 'M', 'P') And TagQty > 0" 'Released, Moved, Pre-Issue
+            Dim PropertyList As String = "TagID, TagQty, Lot, Item, Loc, Whse"
+
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_Tags", PropertyList, Filter, "", "", 0)
+            If ds.Tables(0).Rows.Count > 0 Then
+                TagQty = ds.Tables(0).Rows(0)("TagQty").ToString
+                TagLot = ds.Tables(0).Rows(0)("Lot").ToString
+                TagItem = ds.Tables(0).Rows(0)("Item").ToString
+            Else
+                TagQty = "0"
+                TagLot = ""
+                TagItem = ""
+            End If
+
+            Filter = "EmpNum='" & Session("Employee").ToString & "'"
+            PropertyList = "Item, Description, UM, Lot, QtyConv, ReqQtyConv, Loc, RowPointer, Job, Suffix, OperNum, Sequence"
+            JobMatlData = New Data.DataSet
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            JobMatlData = oWS.LoadDataSet(Session("Token").ToString, "PPCC_JobMatlTemps", PropertyList, Filter, "Job, Suffix, OperNum, Sequence", "", 0)
+
+            If JobMatlData.Tables(0).Rows.Count = 0 Then
+                Literal1.Text = "ไม่พบ Material !!!"
+            Else
+                Literal1.Text = ""
+                For Each row As Data.DataRow In JobMatlData.Tables(0).Rows
+                    Dim MatlItem As String = ""
+                    Dim MatlItemDescription As String = ""
+                    Dim MatlUM As String = ""
+                    Dim MatlLot As String = ""
+                    Dim MatlQtyConv As String = ""
+                    Dim MatlReqQty As String = ""
+                    Dim MatlLoc As String = ""
+                    Dim MatlRowPointer As String = ""
+                    Dim MatlJob As String = ""
+                    Dim MatlSuffix As String = ""
+                    Dim MatlOperNum As String = ""
+                    Dim MatlSequence As String = ""
+                    Dim QtyIssue As Decimal = 0D
+                    Dim IssuedQty As Decimal = 0D
+                    Dim ExistTagID As Integer = 0
+
+                    MatlItem = IIf(IsDBNull(row("Item")), "", row("Item"))
+                    MatlItemDescription = IIf(IsDBNull(row("Description")), "", row("Description"))
+                    MatlUM = IIf(IsDBNull(row("UM")), "", row("UM"))
+                    MatlLot = IIf(IsDBNull(row("Lot")), "", row("Lot"))
+                    MatlQtyConv = IIf(IsDBNull(row("QtyConv")), "", row("QtyConv"))
+                    MatlReqQty = IIf(IsDBNull(row("ReqQtyConv")), "", row("ReqQtyConv"))
+                    MatlLoc = IIf(IsDBNull(row("Loc")), "", row("Loc"))
+                    MatlRowPointer = IIf(IsDBNull(row("RowPointer").ToString), "", row("RowPointer").ToString)
+                    MatlJob = IIf(IsDBNull(row("Job")), "", row("Job"))
+                    MatlSuffix = IIf(IsDBNull(row("Suffix")), "", row("Suffix"))
+                    MatlOperNum = IIf(IsDBNull(row("OperNum")), "", row("OperNum"))
+                    MatlSequence = IIf(IsDBNull(row("Sequence")), "", row("Sequence"))
+
+                    'Check waiting tag issue.
+                    Dim Parms As String = ""
+                    Dim ret As Object
+                    oWS = New SLWebServices.DOWebServiceSoapClient
+                    Parms = "<Parameters><Parameter>" & JobDropDown.SelectedValue & "</Parameter>" & _
+                            "<Parameter>" & MatlSuffix & "</Parameter>" & _
+                            "<Parameter>" & MatlOperNum & "</Parameter>" & _
+                            "<Parameter>" & MatlSequence & "</Parameter>" & _
+                            "<Parameter>" & Session("Employee").ToString & "</Parameter>" & _
+                            "<Parameter>" & DBNull.Value & "</Parameter>" & _
+                            "<Parameter>" & DBNull.Value & "</Parameter>" & _
+                            "<Parameter>" & DBNull.Value & "</Parameter>" & _
+                            "<Parameter>" & BarCodeMatlTextBox.Text & "</Parameter>" & _
+                            "</Parameters>"
+
+                    ret = oWS.CallMethod(Session("Token").ToString, "PPCC_JobMatlTrans", "PPCC_WSGetWaitingIssueTagQtySp", Parms)
+
+                    If ret = "0" Then
+                        Dim doc As XmlDocument = New XmlDocument()
+                        doc.LoadXml(Parms)
+                        Dim i As Integer = 1
+
+                        For Each node As XmlNode In doc.DocumentElement
+                            If i = 6 And Trim(node.InnerText) <> "" Then 'Qty Issue.
+                                QtyIssue = Convert.ToDecimal(node.InnerText)
+                            End If
+                            If i = 7 And Trim(node.InnerText) <> "" Then 'Issued Qty.
+                                IssuedQty = Convert.ToDecimal(node.InnerText)
+                            End If
+                            If i = 8 And Trim(node.InnerText) <> "" Then 'Exist Tag Count.
+                                ExistTagID = Convert.ToInt32(node.InnerText)
+                            End If
+
+                            i += 1
+
+                        Next
+
+                        'Insert
+                        If Convert.ToDecimal(MatlReqQty) > (QtyIssue + IssuedQty) And (MatlItem = TagItem) And ExistTagID = 0 Then
+                            Parms = "<Parameters><Parameter>" & BarCodeMatlTextBox.Text & "</Parameter>" & _
+                                    "<Parameter>" & MatlRowPointer & "</Parameter>" & _
+                                    "<Parameter>" & TagQty & "</Parameter>" & _
+                                    "<Parameter>" & Session("UserName").ToString & "</Parameter>" & _
+                                    "<Parameter>" & Session("Employee").ToString & "</Parameter>" & _
+                                    "</Parameters>"
+                            oWS = New SLWebServices.DOWebServiceSoapClient
+                            ret = oWS.CallMethod(Session("Token").ToString, "PPCC_JobMatlTrans", "PPCC_WSCreateJobIssueTransactionSp", Parms)
+                        End If
+
+                    End If
+                Next
+            End If
+
+            Call BindGrid(ReturnCheckBox.Checked, JobDropDown.SelectedValue, SuffixTextBox.Text, WcDropDown.SelectedValue)
+
+            CancelTagCheckBox.Checked = False
+            BarCodeMatlTextBox.Text = ""
+            BarCodeMatlTextBox.Focus()
+        Catch ex As Exception
+            Literal1.Text = "UpdateIssueTag()<br />" & ex.Message
+        End Try
+
+    End Sub
+
+    Function ValidateJob() As Boolean
+        Dim ErrorCount As Integer = 0
+        Try
+            Literal1.Text = ""
+
+            If JobDropDown.SelectedValue <> "" Then
+
+                Dim Status As String = ""
+                Dim ds As New Data.DataSet
+                oWS = New SLWebServices.DOWebServiceSoapClient
+
+                Literal1.Text = ""
+                If JobWhseHiddenField.Value <> WhseTextBox.Text Then
+                    Literal1.Text &= vbCr & "Invalid Warehouse !!!"
+                    ErrorCount += 1
+                End If
+
+                ds = oWS.LoadDataSet(Session("Token").ToString, "SLJobs", "Stat", "Job = '" & JobDropDown.SelectedValue & "'", "", "", 0)
+
+                If ds.Tables(0).Rows.Count > 0 Then
+                    Status = ds.Tables(0).Rows(0)("Stat").ToString
+                End If
+
+                If Status <> "R" Then
+                    Literal1.Text &= vbCr & "Job status not equal released !!!"
+                    ErrorCount += 1
+                End If
+
+            End If
+
+
+        Catch ex As Exception
+            Literal1.Text = "ValidateJob() <br />" & ex.Message
+        End Try
+
+        If ErrorCount > 0 Then
+            ValidateJob = False
+            ProcessButton.Enabled = False
+        Else
+            ValidateJob = True
+            ProcessButton.Enabled = True
+        End If
+    End Function
+
+    Protected Sub JobMatlGridView_RowDataBound(sender As Object, e As System.Web.UI.WebControls.GridViewRowEventArgs) Handles JobMatlGridView.RowDataBound
+        Try
+            Literal1.Text = ""
+            If e.Row.RowType = DataControlRowType.DataRow Then
+                Dim tag_label As Label = DirectCast(e.Row.FindControl("TagIDLabel"), Label)
+                Dim qty_label As Label = DirectCast(e.Row.FindControl("QtyLabel"), Label)
+                Dim select_checkbox As CheckBox = DirectCast(e.Row.FindControl("SelectCheckBox"), CheckBox)
+
+                If ReturnCheckBox.Checked Then
+                    select_checkbox.Enabled = False
+                    If Convert.ToDouble(qty_label.Text) < 0 Then
+                        select_checkbox.Checked = True
+                    End If
+                Else
+                    select_checkbox.Enabled = True
+                    select_checkbox.Checked = True
+                End If
+
+                If tag_label.Text = "" Then
+                    qty_label.Text = "0.000"
+                End If
+            End If
+        Catch ex As Exception
+            Literal1.Text = "JobMatlGridView_RowDataBound() <br />" & ex.Message
+        End Try
+     
+    End Sub
+
+    Protected Sub PickDateButton_Click(sender As Object, e As System.EventArgs) Handles PickDateButton.Click
+        TransactionDateCalendar.Visible = Not TransactionDateCalendar.Visible
+    End Sub
+
+    Protected Sub TransactionDateCalendar_SelectionChanged(sender As Object, e As System.EventArgs) Handles TransactionDateCalendar.SelectionChanged
+        Dim en As New CultureInfo("en-US")
+        TransDateTextBox.Text = TransactionDateCalendar.SelectedDate.ToString("dd/MM/yyyy", en)
+        TransactionDateCalendar.Visible = False
+    End Sub
+
+    Protected Sub ReturnCheckBox_CheckedChanged(sender As Object, e As System.EventArgs) Handles ReturnCheckBox.CheckedChanged
+        Try
+            Literal1.Text = ""
+            If ReturnCheckBox.Checked Then
+                CancelTagCheckBox.Checked = False
+                CancelTagCheckBox.Enabled = False
+                JobDropDown.SelectedValue = ""
+                JobDropDown_SelectedIndexChanged(ReturnCheckBox, EventArgs.Empty)
+            Else
+                CancelTagCheckBox.Enabled = True
+                JobDropDown.SelectedValue = ""
+                JobDropDown_SelectedIndexChanged(ReturnCheckBox, EventArgs.Empty)
+            End If
+        Catch ex As Exception
+            Literal1.Text = "ReturnCheckBox_CheckedChanged() <br />" & ex.Message
+        End Try
+    End Sub
+End Class

@@ -1,0 +1,293 @@
+﻿<%@ Page Title="" Language="VB" MasterPageFile="~/MasterPageHH.master" AutoEventWireup="false" CodeFile="jobmatl_hh.aspx.vb" Inherits="jobmatl_hh" %>
+
+<asp:Content ID="Content1" ContentPlaceHolderID="head" Runat="Server">
+    <style type="text/css">
+        .style1
+        {
+            font-size: small;
+        }
+        .button_green {
+            background-color: #4CAF50; /* Green */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button_blue {
+            background-color: #008CBA; /* Blue */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button_red {
+            background-color: #f44336; /* Red */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+    </style>
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+    <asp:Label ID="Literal1" runat="server" ForeColor="Red" style="font-size: small"></asp:Label>
+    <table>            
+    <tr>
+        <td style="text-align: right" class="style1">&nbsp;</td>
+        <td style="padding-left:5px;">
+                          
+            <asp:Button ID="MainMenuButton" runat="server" Text="เมนูหลัก" CssClass="button_green" />
+                &nbsp;<asp:Button ID="SignOutButton" runat="server" Text="ออกจากระบบ" CssClass="button_green" />
+        </td>
+    </tr>
+                    
+    <tr>
+        <td style="text-align: right" class="style1">Employee</td>
+        <td style="padding-left:5px;">
+                          
+                <asp:DropDownList ID="EmployeeDropDown" runat="server" 
+                style="text-align: left" CssClass="form-control" Width="160px" 
+                    BackColor="#FFFF99" Enabled="False"> 
+                </asp:DropDownList>
+                          
+        </td>
+    </tr>
+                    
+    <tr>
+        <td style="text-align: right" class="style1">
+            
+            Bar code job</td>
+        <td style="padding-left:5px;">
+                          
+            <asp:TextBox ID="BarCodeJobTextBox" runat="server" 
+                    CssClass="form-control" Width="150px" AutoPostBack="True"></asp:TextBox>
+            
+            <asp:HiddenField ID="JobWhseHiddenField" runat="server" />
+            <asp:HiddenField ID="JobStatusHiddenField" runat="server" />
+            
+            </td>
+    </tr>
+                    
+    <tr>
+        <td style="text-align: right" class="style1">
+            
+            Whse</td>
+        <td style="padding-left:5px;">
+                          
+            <asp:TextBox ID="WhseTextBox" runat="server" ReadOnly="True" 
+                    CssClass="form-control" Width="100px"></asp:TextBox></td>
+    </tr>
+                    
+    <tr>
+        <td style="text-align: right" class="style1">
+                <asp:CheckBox ID="ReturnCheckBox" runat="server" Text="Return" 
+                style="font-size: small" AutoPostBack="True" />&nbsp;
+            Job</td>
+        <td style="padding-left:5px;">
+                          
+            <asp:DropDownList ID="JobDropDown" runat="server" AutoPostBack="True">
+            </asp:DropDownList>
+            <asp:TextBox ID="SuffixTextBox" runat="server" Width="40px">0000</asp:TextBox>
+        </td>
+    </tr>
+                    
+    <tr>
+        <td style="text-align: right" class="style1">WC</td>
+        <td style="padding-left:5px;">
+                          
+            <asp:DropDownList ID="WcDropDown" runat="server" Enabled="False">
+            </asp:DropDownList>
+        </td>
+    </tr>
+                    
+    <tr>
+        <td style="text-align: right" class="style1">Item</td>
+        <td style="padding-left:5px;">
+            
+            <asp:TextBox ID="ItemTextBox" runat="server" ReadOnly="True"></asp:TextBox>
+        </td>
+    </tr>
+                    
+    <tr>
+        <td style="text-align: right" class="style1">&nbsp;</td>
+        <td style="padding-left:5px;">
+            
+            <asp:TextBox ID="ItemDescriptionTextBox" runat="server" Width="200px" 
+                ReadOnly="True"></asp:TextBox>
+        </td>
+    </tr>
+                    
+    <tr>
+        <td style="text-align: right; vertical-align: top" class="style1">Trans. Date</td>
+        <td style="padding-left:5px;">
+                          
+            <asp:TextBox ID="TransDateTextBox" runat="server" BackColor="#FFFF99" 
+                CssClass="style1" Width="120px"></asp:TextBox>
+            <asp:Button ID="PickDateButton" runat="server" Text="..." CssClass="button_green" />
+            <asp:Label ID="Label1" runat="server" Font-Italic="True" ForeColor="Gray" 
+                Text="รูปแบบ: วัน/เดือน/ปี" CssClass="style1"></asp:Label>
+            <br />
+            <asp:Calendar ID="TransactionDateCalendar" runat="server" BackColor="White" 
+                BorderColor="#999999" CellPadding="4" DayNameFormat="Shortest" 
+                Font-Names="Verdana" Font-Size="8pt" ForeColor="Black" Height="180px" 
+                Width="200px" Visible="False">
+                <DayHeaderStyle BackColor="#CCCCCC" Font-Bold="True" Font-Size="7pt" />
+                <NextPrevStyle VerticalAlign="Bottom" />
+                <OtherMonthDayStyle ForeColor="#808080" />
+                <SelectedDayStyle BackColor="#666666" Font-Bold="True" ForeColor="White" />
+                <SelectorStyle BackColor="#CCCCCC" />
+                <TitleStyle BackColor="#999999" BorderColor="Black" Font-Bold="True" />
+                <TodayDayStyle BackColor="#CCCCCC" ForeColor="Black" />
+                <WeekendDayStyle BackColor="#FFFFCC" />
+            </asp:Calendar>
+        </td>
+    </tr>
+                    
+    <tr>
+        <td style="text-align: right" class="style1">Bar code matl.</td>
+        <td style="padding-left:5px;">
+                          
+            <asp:TextBox ID="BarCodeMatlTextBox" runat="server" 
+                    Width="150px" CssClass="form-control" AutoPostBack="true" OnTextChanged="BarCodeMatlTextBox_TextChanged"></asp:TextBox></td>
+    </tr>
+                    
+    <tr>
+        <td style="text-align: right" class="style1">&nbsp;</td>
+        <td style="padding-left:5px;">
+                          
+                <asp:Button ID="ProcessButton" runat="server" Text="Process" Width="100px" 
+                            CssClass="button_green" 
+                            
+                OnClientClick="javascript:return confirm('Confirm Process?');" />
+                &nbsp;<asp:Button ID="ClearButton" runat="server" Text="Cancel" CssClass="button_green" />
+        </td>
+    </tr>
+                    
+    <tr>
+        <td style="text-align: right" class="style1">&nbsp;</td>
+        <td>
+            <asp:CheckBox ID="CancelTagCheckBox" runat="server" style="font-size: small" 
+                Text="Cancel Tag" />
+                          
+                &nbsp;<asp:Label ID="TransactionCountLabel" runat="server" style="font-size: small" 
+                    Visible="False"></asp:Label>
+        </td>
+    </tr>
+                    
+    </table>
+    <div class="dataTable_wrapper">
+        <asp:GridView ID="JobMatlGridView" runat="server" AutoGenerateColumns="False" 
+            CssClass="table table-striped table-bordered table-hover" CellPadding="4" 
+            ForeColor="#333333" GridLines="None">
+            <PagerStyle BackColor="#284775" ForeColor="White" HorizontalAlign="Center" />
+            <RowStyle Font-Size="Small" BackColor="#F7F6F3" ForeColor="#333333" />
+            <AlternatingRowStyle Font-Size="Small" BackColor="White" ForeColor="#284775" />
+            <EditRowStyle BackColor="#999999" />
+            <FooterStyle BackColor="#5D7B9D" Font-Bold="True" ForeColor="White" />
+            <HeaderStyle Font-Size="Small" BackColor="#5D7B9D" Font-Bold="True" 
+                ForeColor="White" />
+            <Columns>
+                <asp:TemplateField HeaderText = "Select" ItemStyle-HorizontalAlign="Center">
+                    <ItemTemplate>
+                        <asp:CheckBox ID="SelectCheckBox" runat="server" />
+                    </ItemTemplate>
+
+<ItemStyle HorizontalAlign="Center"></ItemStyle>
+                </asp:TemplateField>
+                <asp:TemplateField HeaderText="Tag ID">
+                    <ItemTemplate>
+                        <asp:Label ID="TagIDLabel" runat="server" style="vertical-align:middle" 
+                            Text='<%# Eval("TagID") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField HeaderText="Sequence">
+                    <ItemTemplate>
+                        <asp:Label ID="SequenceLabel" runat="server" style="vertical-align:middle" 
+                            Text='<%# Eval("Sequence") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField HeaderText="Item">
+                    <ItemTemplate>
+                        <asp:Label ID="ItemLabel" runat="server" 
+                            style="text-align:center; vertical-align:middle" 
+                            Text='<%# Eval("Item") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField HeaderText="Item Desc.">
+                    <ItemTemplate>
+                        <asp:Label ID="ItemDescriptionLabel" runat="server" 
+                            style="text-align:center; vertical-align:middle" 
+                            Text='<%# Eval("Description") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField HeaderText="U/M">
+                    <ItemTemplate>
+                        <asp:Label ID="UMLabel" runat="server" 
+                            style="text-align:center; vertical-align:middle" 
+                            Text='<%# Eval("UM") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField HeaderText="Lot">
+                    <ItemTemplate>
+                        <asp:Label ID="LotLabel" runat="server" style="text-align:center" 
+                            Text='<%# Eval("Lot") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Qty">
+                    <ItemTemplate>
+                        <asp:Label ID="QtyLabel" runat="server" style="text-align:center" 
+                            Text='<%# Eval("QtyConv", "{0:N3}") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Required">
+                    <ItemTemplate>
+                        <asp:Label ID="RequiredQtyLabel" runat="server" style="text-align:center" 
+                            Text='<%# Eval("ReqQtyConv", "{0:N3}") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                
+                <asp:TemplateField HeaderText="Issued">
+                    <ItemTemplate>
+                        <asp:Label ID="IssuedQtyLabel" runat="server" style="text-align:center" 
+                            Text='<%# Eval("DerQtyIssuedConv", "{0:N3}") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Loc">
+                    <ItemTemplate>
+                        <asp:Label ID="LocLabel" runat="server" style="text-align:center" 
+                            Text='<%# Eval("Loc") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                 <asp:TemplateField HeaderText="RowPointer" Visible="false">
+                    <ItemTemplate>
+                        <asp:Label ID="RowPointerLabel" runat="server" style="text-align:center" 
+                            Text='<%# Eval("RowPointer") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:CommandField  ShowEditButton="True" ButtonType="Button" 
+                    ControlStyle-CssClass="button_green" EditText="แก้ไข" CancelText="ยกเลิก" 
+                    UpdateText="ตกลง" ControlStyle-Width="100px" >
+
+<ControlStyle CssClass="btn btn-default" Width="100px"></ControlStyle>
+                </asp:CommandField>
+
+            </Columns>
+            <SelectedRowStyle BackColor="#E2DED6" Font-Bold="True" ForeColor="#333333" />
+            <SortedAscendingCellStyle BackColor="#E9E7E2" />
+            <SortedAscendingHeaderStyle BackColor="#506C8C" />
+            <SortedDescendingCellStyle BackColor="#FFFDF8" />
+            <SortedDescendingHeaderStyle BackColor="#6F8DAE" />
+        </asp:GridView>
+    </div>
+</asp:Content>
+

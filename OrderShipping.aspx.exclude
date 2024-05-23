@@ -1,0 +1,244 @@
+﻿<%@ Page Title="" Language="vb" MasterPageFile="~/SNPRWeb1.Master" AutoEventWireup="false" CodeFile="OrderShipping.aspx.vb" Inherits="OrderShipping" %>
+
+<asp:Content ID="Content1" ContentPlaceHolderID="head" runat="server">
+     
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" runat="server">
+    <asp:Table runat="server" ID="Table2" style="font-size: small">
+        <asp:TableRow>
+            <asp:TableCell>
+                <asp:Label ID="labEmployee" runat="server" Text="Employee" ></asp:Label>
+            </asp:TableCell>
+            <asp:TableCell>
+                <asp:DropDownList ID="ddlEmployee" runat="server" Enabled="false"></asp:DropDownList>
+            </asp:TableCell>
+        </asp:TableRow>
+        <asp:TableRow>
+            <asp:TableCell>
+                <asp:Label ID="labTransDate" runat="server" Text="Transaction Date"></asp:Label>
+            </asp:TableCell>
+            <asp:TableCell>
+                <asp:TextBox ID="txtTransDate" runat="server"></asp:TextBox>
+                <asp:Button ID="btnTransDate" runat="server" Text="..." CssClass="button_green" />
+            </asp:TableCell>
+        </asp:TableRow>
+        <asp:TableRow>
+            <asp:TableCell>
+                <asp:Label ID="labBlank02" runat="server" Text=""></asp:Label>
+            </asp:TableCell>
+            <asp:TableCell>
+                <asp:Calendar ID="calTransDate" runat="server"  ></asp:Calendar>
+            </asp:TableCell>
+        </asp:TableRow>
+        <asp:TableRow>
+            <asp:TableCell>
+                <asp:Label ID="labOrderPickList" runat="server" Text="Order Pick List"></asp:Label>
+            </asp:TableCell>
+            <asp:TableCell>
+                <asp:TextBox ID="txtBarcodeOrderShipping" runat="server"></asp:TextBox> 
+            </asp:TableCell>
+        </asp:TableRow>
+        <asp:TableRow>    
+            <asp:TableCell>
+                <asp:Label ID="labWhse" runat="server" Text="Whse"></asp:Label>
+            </asp:TableCell>
+            <asp:TableCell>
+                <asp:TextBox ID="txtWhse" runat="server"></asp:TextBox>
+            </asp:TableCell>
+        </asp:TableRow>
+        <asp:TableRow>
+            <asp:TableCell>
+                <asp:Label ID="labKANBAN" runat="server" Text="KANBAN"></asp:Label>
+            </asp:TableCell>
+            <asp:TableCell>
+                <asp:TextBox ID="txtKanban" runat="server"></asp:TextBox>
+            </asp:TableCell>
+        </asp:TableRow>
+
+        <asp:TableRow>
+            <asp:TableCell>
+                <asp:Label runat="server" ID="labOrder" Text="Order"></asp:Label>
+            </asp:TableCell>
+            <asp:TableCell>
+                <asp:TextBox ID="txtOrder" runat="server"></asp:TextBox>
+            </asp:TableCell>
+        </asp:TableRow>
+
+        <asp:TableRow>
+            <asp:TableCell>
+                <asp:Label runat="server" ID="ReasonCodeLabel" Text="Reason Code"></asp:Label>
+            </asp:TableCell>
+            <asp:TableCell>
+                <asp:DropDownList ID="ReasonCodeDropDown" runat="server" Enabled="false">
+                </asp:DropDownList>
+            </asp:TableCell>
+        </asp:TableRow>
+       
+        <asp:TableRow>
+            <asp:TableCell>
+                <asp:Label ID="labCustomer" runat="server" Text="Customer"></asp:Label>
+            </asp:TableCell>
+            <asp:TableCell ColumnSpan="3" >
+                <asp:TextBox ID="txtCustomer" runat="server"></asp:TextBox>
+            </asp:TableCell>
+ 
+        </asp:TableRow>
+        <asp:TableRow>
+            <asp:TableCell>
+                &nbsp;
+            </asp:TableCell>
+            <asp:TableCell>
+                <asp:TextBox ID="txtCustName" runat="server"></asp:TextBox>
+            </asp:TableCell>
+        </asp:TableRow>
+         <asp:TableRow>
+            <asp:TableCell>
+                <asp:Label ID="labTag" runat="server" Text="Tag"></asp:Label>
+            </asp:TableCell>
+            <asp:TableCell>
+                <asp:TextBox ID="txtTag" runat="server"></asp:TextBox>
+                <asp:Button ID="btnScan" runat="server" Text="Scan" CssClass="button_green" ></asp:Button>
+            </asp:TableCell>
+        </asp:TableRow>
+
+        <asp:TableRow>
+            <asp:TableCell>
+                <asp:Label ID="labBlank01" runat="server" Text=""></asp:Label>
+            </asp:TableCell>
+            <asp:TableCell>
+                <asp:Button ID="btnClearAll" runat="server" Text="Clear All" CssClass="button_green" />
+                &nbsp;<asp:Button ID="btnCancel" runat="server" Text="Cancel" CssClass="button_green" />
+                &nbsp;<asp:Button ID="btnProcess" runat="server" Text="Process" CssClass="button_green" />
+                
+            </asp:TableCell>
+           
+        </asp:TableRow>
+        <asp:TableRow>
+           <asp:TableCell>
+                 &nbsp;
+            </asp:TableCell>
+         <asp:TableCell>
+                <asp:CheckBox ID="ReturnOrderCheckBox" runat="server" />Return Order
+                <asp:CheckBox ID="chkReturn" runat="server" Text="Return Tag" />
+            </asp:TableCell>
+            
+        </asp:TableRow>
+    </asp:Table>
+
+    <asp:Label ID="labError" runat="server" Text="labError"></asp:Label>
+
+    <br />
+
+    <asp:GridView ID="grdOrderShipping" runat="server" AutoGenerateColumns="False" 
+        style="font-size: small" CellPadding="4" ForeColor="#333333" GridLines="None">
+        <AlternatingRowStyle BackColor="White" ForeColor="#284775" />
+        <Columns>
+            <asp:TemplateField headertext="CO-Line">
+                <ItemTemplate>
+                    <asp:Label ID="labCoLine" runat="server" style="text-align:center" Text='<%# Eval("co_line") %>'></asp:Label>
+                </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField headertext="Item">
+                    <ItemTemplate>
+                        <asp:Label ID="labTagItem" runat="server" style="text-align:center" Text='<%# Eval("item") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                 <asp:TemplateField headertext="Item Desc">
+                    <ItemTemplate>
+                        <asp:Label ID="labTagDescription" runat="server" style="text-align:center" Text='<%# Eval("description") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField headertext="U/M">
+                    <ItemTemplate>
+                        <asp:Label ID="labTagUM" runat="server" style="text-align:center" Text='<%# Eval("u_m") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                 <asp:TemplateField headertext="Qty">
+                    <ItemTemplate>
+                        <asp:Label ID="labTagLot" runat="server" style="text-align:center" Text='<%# Eval("qty_tag","{0:N0}") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                 <asp:TemplateField headertext="Qty Ordered">
+                    <ItemTemplate>
+                        <asp:Label ID="labTagQty" runat="server" style="text-align:center" Text='<%# Eval("qty_ordered","{0:N0}") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                 <asp:TemplateField headertext="Qty Shipped">
+                    <ItemTemplate>
+                        <asp:Label ID="labTagLoc" runat="server" style="text-align:center" Text='<%# Eval("qty_shipped","{0:N0}") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+            </Columns>
+        <EditRowStyle BackColor="#999999" />
+        <FooterStyle BackColor="#5D7B9D" Font-Bold="True" ForeColor="White" />
+        <HeaderStyle BackColor="#5D7B9D" Font-Bold="True" ForeColor="White" />
+        <PagerStyle BackColor="#284775" ForeColor="White" HorizontalAlign="Center" />
+        <RowStyle BackColor="#F7F6F3" ForeColor="#333333" />
+        <SelectedRowStyle BackColor="#E2DED6" Font-Bold="True" ForeColor="#333333" />
+        <SortedAscendingCellStyle BackColor="#E9E7E2" />
+        <SortedAscendingHeaderStyle BackColor="#506C8C" />
+        <SortedDescendingCellStyle BackColor="#FFFDF8" />
+        <SortedDescendingHeaderStyle BackColor="#6F8DAE" />
+    </asp:GridView>
+
+    <asp:GridView ID="GridView1" runat="server" AutoGenerateColumns="False" 
+        style="font-size: small" Visible="False" CellPadding="4" ForeColor="#333333" 
+        GridLines="None">
+        <AlternatingRowStyle BackColor="White" ForeColor="#284775" />
+        <Columns>
+                <asp:TemplateField headertext="Tag ID.">
+                    <ItemTemplate>
+                        <asp:Label ID="labTagID" runat="server" style="text-align:center" Text='<%# Eval("TagID") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField headertext="CO-Line">
+                    <ItemTemplate>
+                        <asp:Label ID="labCoLine" runat="server" style="text-align:center" Text='<%# Eval("CoLine") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField headertext="Item">
+                    <ItemTemplate>
+                        <asp:Label ID="labTagItem" runat="server" style="text-align:center" Text='<%# Eval("Item") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                 <asp:TemplateField headertext="Item Desc">
+                    <ItemTemplate>
+                        <asp:Label ID="labTagDescription" runat="server" style="text-align:center" Text='<%# Eval("ItemDescription") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField headertext="U/M">
+                    <ItemTemplate>
+                        <asp:Label ID="labTagUM" runat="server" style="text-align:center" Text='<%# Eval("UM") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField headertext="Tag Qty">
+                    <ItemTemplate>
+                        <asp:Label ID="labTagQty" runat="server" style="text-align:center" Text='<%# Eval("TagQty","{0:N0}") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                 <asp:TemplateField headertext="Qty Ordered">
+                    <ItemTemplate>
+                        <asp:Label ID="labQtyOrdered" runat="server" style="text-align:center" Text='<%# Eval("QtyOrderedConv","{0:N0}") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                 <asp:TemplateField headertext="Qty Shipped">
+                    <ItemTemplate>
+                        <asp:Label ID="labQtyShipped" runat="server" style="text-align:center" Text='<%# Eval("QtyShipped","{0:N0}") %>'></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+            </Columns>
+        <EditRowStyle BackColor="#999999" />
+        <FooterStyle BackColor="#5D7B9D" Font-Bold="True" ForeColor="White" />
+        <HeaderStyle BackColor="#5D7B9D" Font-Bold="True" ForeColor="White" />
+        <PagerStyle BackColor="#284775" ForeColor="White" HorizontalAlign="Center" />
+        <RowStyle BackColor="#F7F6F3" ForeColor="#333333" />
+        <SelectedRowStyle BackColor="#E2DED6" Font-Bold="True" ForeColor="#333333" />
+        <SortedAscendingCellStyle BackColor="#E9E7E2" />
+        <SortedAscendingHeaderStyle BackColor="#506C8C" />
+        <SortedDescendingCellStyle BackColor="#FFFDF8" />
+        <SortedDescendingHeaderStyle BackColor="#6F8DAE" />
+    </asp:GridView>
+
+
+</asp:Content>

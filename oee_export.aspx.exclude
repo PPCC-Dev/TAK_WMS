@@ -1,0 +1,143 @@
+﻿<%@ Page Language="VB" AutoEventWireup="false" CodeFile="oee_export.aspx.vb" Inherits="oee_export" %>
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head runat="server">
+    <title></title>
+</head>
+<body>
+    <form id="form1" runat="server">
+    <div>
+    <asp:GridView ID="OEEGridView" runat="server" AutoGenerateColumns="false" ShowFooter="false" ShowHeader="true">
+            <Columns>
+                <asp:TemplateField HeaderText="Date">
+                    <ItemTemplate>
+                        <asp:Label ID="DateLabel" runat="server" Text='<%# Eval("TransDate", "{0:MM/dd/yyyy}") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField HeaderText="Resource">
+                    <ItemTemplate>
+                        <asp:Label ID="ResourceLabel" runat="server" Text='<%# Eval("Resource") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField HeaderText="Resource Description">
+                    <ItemTemplate>
+                        <asp:Label ID="ResourceDescriptionLabel" runat="server" Text='<%# Eval("ResourceDescription") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField HeaderText="Shift">
+                    <ItemStyle HorizontalAlign="Center" />
+                    <ItemTemplate>
+                        <asp:Label ID="ShiftLabel" runat="server" Text='<%# Eval("Shift") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+                <asp:TemplateField HeaderText="Job Orders">
+                    <ItemTemplate>
+                        <asp:Label ID="JobLabel" runat="server" Text='<%# Eval("Job") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Oper">
+                    <ItemTemplate>
+                        <asp:Label ID="OperLabel" runat="server" Text='<%# Eval("OperNum") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Work Center">
+                    <ItemTemplate>
+                        <asp:Label ID="WcDescriptionLabel" runat="server" Text='<%# Eval("WcDescription") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Item">
+                    <ItemTemplate>
+                        <asp:Label ID="ItemLabel" runat="server" Text='<%# Eval("Item") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Item Description">
+                    <ItemTemplate>
+                        <asp:Label ID="DescriptionLabel" runat="server" Text='<%# Eval("Description") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="U/M">
+                    <ItemTemplate>
+                        <asp:Label ID="UMLabel" runat="server" Text='<%# Eval("UM") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Completed">
+                    <ItemStyle HorizontalAlign="Right" />
+                    <ItemTemplate>
+                        <asp:Label ID="QtyCompleteLabel" runat="server" Text='<%# Eval("QtyComplete", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Scrapped">
+                    <ItemStyle HorizontalAlign="Right" />
+                    <ItemTemplate>
+                        <asp:Label ID="QtyScrappedLabel" runat="server" Text='<%# Eval("QtyScrapped", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="%Scrap">
+                    <ItemStyle HorizontalAlign="Right" />
+                    <ItemTemplate>
+                        <asp:Label ID="ScrappedPercentLabel" runat="server" Text='<%# Eval("ScrappedPercent", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Total Down Time">
+                    <ItemStyle HorizontalAlign="Right" />
+                    <ItemTemplate>
+                        <asp:Label ID="TotalDTLabel" runat="server" Text='<%# Eval("TotalDT", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="PNT">
+                    <ItemStyle HorizontalAlign="Right" />
+                    <ItemTemplate>
+                        <asp:Label ID="PNTLabel" runat="server" Text='<%# Eval("PNT", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="RPS">
+                    <ItemStyle HorizontalAlign="Right" />
+                    <ItemTemplate>
+                        <asp:Label ID="RPSLabel" runat="server" Text='<%# Eval("RPS", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="US">
+                    <ItemStyle HorizontalAlign="Right" />
+                    <ItemTemplate>
+                        <asp:Label ID="USLabel" runat="server" Text='<%# Eval("US", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Remark">
+                    <ItemTemplate>
+                        <asp:Label ID="RemarkLabel" runat="server" Text='<%# Eval("Remark") %>' style="vertical-align:middle"></asp:Label>
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Supervisor">
+                    <ItemTemplate>
+
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+                <asp:TemplateField HeaderText="Line">
+                    <ItemTemplate>
+
+                    </ItemTemplate>
+                </asp:TemplateField>
+
+            </Columns>
+        </asp:GridView>
+    </div>
+    </form>
+</body>
+</html>

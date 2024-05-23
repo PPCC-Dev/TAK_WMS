@@ -1,0 +1,419 @@
+﻿<%@ Page Title="OEE Summary" Language="VB" MasterPageFile="~/MasterPage.master" AutoEventWireup="false" CodeFile="oee.aspx.vb" Inherits="oee" %>
+
+<asp:Content ID="Content1" ContentPlaceHolderID="head" Runat="Server">
+    <link href="css/jquery-ui.css" rel="stylesheet" type="text/css" />
+    <script src="js/jquery-1.10.2.js" type="text/javascript"></script>
+    <script src="js/jquery-ui.js" type="text/javascript"></script>
+    <script src="js/jquery.maskedinput.js" type="text/javascript"></script>
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+<div class="row" style="padding-top: 10px">
+    <div class="col-lg-12">
+        <div class="panel panel-default">
+            <div class="panel-heading"><label>OEE Summary</label></div>
+            <div class="panel-body">
+
+            <table>
+                    <tr>
+                        <td style="text-align: right">
+                            <label>ผู้ทำรายการ: </label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px" colspan="5">
+                          
+
+                                <asp:DropDownList ID="UserDropDown" runat="server" 
+                                style="text-align: left" CssClass="form-control" Width="300px" 
+                                    BackColor="#FFFF99" Enabled="False"> 
+                                </asp:DropDownList>
+                               
+                                </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="text-align: right">
+                            <label>
+                            Line: </label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="LineStartingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="text-align: right"></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="LineEndingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                            &nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                                        <asp:Button ID="PreviewButton" runat="server" Text="Preview" 
+                                Width="150px" CssClass="btn btn-primary" /></td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="text-align: right"><label>Resource: </label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="ResourceStartingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="text-align: right"></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="ResourceEndingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                            &nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                                        <asp:Button ID="ClearButton" runat="server" Text="Clear Data" 
+                                Width="150px" CssClass="btn btn-primary" /></td>
+                    </tr>
+                    
+                                        
+                    <tr>
+                        <td style="text-align: right"><label>Work Center: </label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="WcStartingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="text-align: right">&nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="WcEndingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                            &nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                                        &nbsp;</td>
+                    </tr>
+                    
+                                        
+                    <tr>
+                        <td style="text-align: right"><label>Job Order: </label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="JobStartingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="text-align: right">&nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="JobEndingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                            &nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                                        <asp:Button ID="ExportButton" runat="server" Text="Export To Excel" 
+                                Width="150px" CssClass="btn btn-success" /></td>
+                    </tr>
+                    
+                                        
+                    <tr>
+                        <td style="text-align: right"><label>Item: </label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="ItemStartingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="text-align: right">&nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="ItemEndingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                            &nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                                        &nbsp;</td>
+                    </tr>
+                    
+                                        
+                    <tr>
+                        <td style="text-align: right"><label>Date: </label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:TextBox ID="DateStartingTextBox" runat="server" Width="200px" 
+                                CssClass="form-control"></asp:TextBox>
+                               <asp:HiddenField ID="DateHiddenField" runat="server" />
+                                </td>
+                        <td style="text-align: right">&nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:TextBox ID="DateEndingTextBox" runat="server" Width="200px" 
+                                CssClass="form-control"></asp:TextBox>
+                               
+                                </td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                            &nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                                        &nbsp;</td>
+                    </tr>
+                    
+                                        
+                    <tr>
+                        <td style="text-align: right"><label>Shift: </label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="ShiftStartingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="text-align: right">&nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+
+                            <asp:DropDownList ID="ShiftEndingDropDown" runat="server" 
+                                CssClass="form-control" Width="200px">
+                            </asp:DropDownList>
+                               
+                                </td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                            &nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                          
+                                        &nbsp;</td>
+                    </tr>
+                    
+                                        
+                </table>
+
+                <table>
+                    <tr>
+                        <td style="text-align: right">
+                            &nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                            &nbsp;</td>
+                        <td style="text-align: right">
+                            &nbsp;</td>
+                        <td style="text-align: right">
+                            &nbsp;</td>
+                        <td style="text-align: right">
+                            &nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px; padding-top:10px">
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="text-align: left" colspan="6">
+                            <div class="dataTable_wrapper">
+                                <asp:GridView ID="OEEGridView" runat="server" AutoGenerateColumns="false" 
+                                    CssClass="table table-striped table-bordered table-hover" ShowFooter="false" 
+                                    ShowHeader="true">
+                                    <Columns>
+                                        <asp:TemplateField HeaderText="Date">
+                                            <ItemTemplate>
+                                                <asp:Label ID="DateLabel" runat="server" Text='<%# Eval("TransDate", "{0:MM/dd/yyyy}") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="Resource">
+                                            <ItemTemplate>
+                                                <asp:Label ID="ResourceLabel" runat="server" Text='<%# Eval("Resource") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="Resource Description">
+                                            <ItemTemplate>
+                                                <asp:Label ID="ResourceDescriptionLabel" runat="server" Text='<%# Eval("ResourceDescription") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="Shift">
+                                            <ItemStyle HorizontalAlign="Center" />
+                                            <ItemTemplate>
+                                                <asp:Label ID="ShiftLabel" runat="server" Text='<%# Eval("Shift") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+                                        <asp:TemplateField HeaderText="Job Orders">
+                                            <ItemTemplate>
+                                                <asp:Label ID="JobLabel" runat="server" Text='<%# Eval("Job") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="Oper">
+                                            <ItemTemplate>
+                                                <asp:Label ID="OperLabel" runat="server" Text='<%# Eval("OperNum") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="Work Center">
+                                            <ItemTemplate>
+                                                <asp:Label ID="WcDescriptionLabel" runat="server" Text='<%# Eval("WcDescription") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="Item">
+                                            <ItemTemplate>
+                                                <asp:Label ID="ItemLabel" runat="server" Text='<%# Eval("Item") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="Item Description">
+                                            <ItemTemplate>
+                                                <asp:Label ID="DescriptionLabel" runat="server" Text='<%# Eval("Description") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="U/M">
+                                            <ItemTemplate>
+                                                <asp:Label ID="UMLabel" runat="server" Text='<%# Eval("UM") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="Completed">
+                                            <ItemStyle HorizontalAlign="Right" />
+                                            <ItemTemplate>
+                                                <asp:Label ID="QtyCompleteLabel" runat="server" Text='<%# Eval("QtyComplete", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="Scrapped">
+                                            <ItemStyle HorizontalAlign="Right" />
+                                            <ItemTemplate>
+                                                <asp:Label ID="QtyScrappedLabel" runat="server" Text='<%# Eval("QtyScrapped", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="%Scrap">
+                                            <ItemStyle HorizontalAlign="Right" />
+                                            <ItemTemplate>
+                                                <asp:Label ID="ScrappedPercentLabel" runat="server" Text='<%# Eval("ScrappedPercent", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="Total Down Time">
+                                            <ItemStyle HorizontalAlign="Right" />
+                                            <ItemTemplate>
+                                                <asp:Label ID="TotalDTLabel" runat="server" Text='<%# Eval("TotalDT", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="PNT">
+                                            <ItemStyle HorizontalAlign="Right" />
+                                            <ItemTemplate>
+                                                <asp:Label ID="PNTLabel" runat="server" Text='<%# Eval("PNT", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="RPS">
+                                            <ItemStyle HorizontalAlign="Right" />
+                                            <ItemTemplate>
+                                                <asp:Label ID="RPSLabel" runat="server" Text='<%# Eval("RPS", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="US">
+                                            <ItemStyle HorizontalAlign="Right" />
+                                            <ItemTemplate>
+                                                <asp:Label ID="USLabel" runat="server" Text='<%# Eval("US", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="Remark">
+                                            <ItemTemplate>
+                                                <asp:Label ID="RemarkLabel" runat="server" Text='<%# Eval("Remark") %>' style="vertical-align:middle"></asp:Label>
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="Supervisor">
+                                            <ItemTemplate>
+
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                        <asp:TemplateField HeaderText="Line">
+                                            <ItemTemplate>
+
+                                            </ItemTemplate>
+                                        </asp:TemplateField>
+
+                                    </Columns>
+                                </asp:GridView>
+                            </div>
+                        </td>
+                    </tr>
+                    
+                </table>
+
+
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- jQuery -->
+<!-- Bootstrap Core JavaScript -->
+<script src="bower_components/bootstrap/dist/js/bootstrap.min.js" type="text/javascript"></script>
+<!-- Metis Menu Plugin JavaScript -->
+<script src="bower_components/metisMenu/dist/metisMenu.min.js" type="text/javascript"></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="dist/js/sb-admin-2.js" type="text/javascript"></script>
+
+<!-- DataTables JavaScript -->
+<script src="bower_components/DataTables/media/js/jquery.dataTables.min.js" type="text/javascript"></script>
+<script src="bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.min.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+    $(document).ready(function () {
+
+        $("#<%= DateStartingTextBox.ClientID %>").datepicker({
+            dateFormat: "dd/mm/yy"
+        }).mask("99/99/9999");
+
+        $("#<%= DateEndingTextBox.ClientID %>").datepicker({
+            dateFormat: "dd/mm/yy"
+        }).mask("99/99/9999");
+
+    });
+</script>
+</asp:Content>
+

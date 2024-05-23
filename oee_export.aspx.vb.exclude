@@ -1,0 +1,85 @@
+﻿
+Partial Class oee_export
+    Inherits System.Web.UI.Page
+    Dim oWS As SLWebServices.DOWebServiceSoapClient
+
+    Protected Sub Page_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+        If Session("Token") Is Nothing Then
+            Response.Redirect("signin.aspx")
+        Else
+            If Session("Token").ToString = "" Then
+                Response.Redirect("signin.aspx")
+            End If
+        End If
+
+        'Verify Employee
+        If Session("Employee") Is Nothing Then
+            Response.Redirect("default.aspx")
+        Else
+            If Session("Employee").ToString = "" Then
+                Response.Redirect("default.aspx")
+            End If
+        End If
+
+        If Not Session("CanAccessOEE") Then Response.Redirect("default.aspx")
+
+        Call ExportToExcel()
+        Call ResponseContent()
+    End Sub
+
+    Sub ExportToExcel()
+        Dim Parms As String = "<Parameters><Parameter>" & OEEExport.UserName & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.UserName & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.LineStarting & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.LineEnding & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.ResourceStarting & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.ResourceEnding & "</Parameter>" &
+                            "<Parameter>" & OEEExport.WcStarting & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.WcEnding & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.JobStarting & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.JobEnding & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.ItemStarting & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.ItemEnding & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.DateStarting & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.DateEnding & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.ShiftStarting & "</Parameter>" & _
+                            "<Parameter>" & OEEExport.ShiftEnding & "</Parameter></Parameters>"
+
+        Dim res As Object
+        oWS = New SLWebServices.DOWebServiceSoapClient
+        res = oWS.CallMethod(Session("Token").ToString, "PPCC_OEETemp", "PPCC_PreviewOEESummarySp", Parms)
+
+        If res = "0" Then
+            Dim PropertyList As String = "TransDate, Resource, Shift, Job, OperNum, Item, Description, UM, QtyComplete, QtyScrapped, ScrappedPercent, TotalDT, PNT, RPS, US, Remark, ResourceDescription, WcDescription"
+            Dim ds As Data.DataSet
+            Dim Filter As String = "UserName = '" & Session("UserName").ToString & "' And EmpNum= '" & Session("Employee").ToString & "'"
+            oWS = New SLWebServices.DOWebServiceSoapClient
+
+            ds = New Data.DataSet
+            ds = oWS.LoadDataSet(Session("Token").ToString, "PPCC_OEETemp", PropertyList, Filter, "Seq", "", 0)
+
+            OEEGridView.DataSource = ds.Tables(0)
+            OEEGridView.DataBind()
+        Else
+            OEEGridView.DataSource = Nothing
+            OEEGridView.DataBind()
+        End If
+
+    End Sub
+
+    Sub ResponseContent()
+        'Response.Clear()
+        'Response.Buffer = True
+        'Response.Charset = "UTF-8"
+        'Response.ContentType = "text/csv"
+        'Response.AddHeader("Content-Disposition", "Attachment; Filename=OEE.csv")
+
+        Response.Clear()
+        Response.Buffer = True
+        Response.Charset = ""
+        Response.ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        Response.AddHeader("content-disposition", "attachment;filename=OEE.xls")
+    End Sub
+
+End Class
+ 

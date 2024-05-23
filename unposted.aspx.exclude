@@ -1,0 +1,1390 @@
+﻿<%@ Page Title="Unposted Job Transactions" Language="VB" MasterPageFile="~/MasterPage.master" AutoEventWireup="false" CodeFile="unposted.aspx.vb" Inherits="unposted" %>
+
+<%@ Register Assembly="AjaxControlToolkit" Namespace="AjaxControlToolkit" TagPrefix="cc1" %>
+
+<asp:Content ID="Content1" ContentPlaceHolderID="head" Runat="Server">
+    <link href="css/jquery-ui.css" rel="stylesheet" type="text/css" />
+    <script src="js/jquery-1.10.2.js" type="text/javascript"></script>
+    <script src="js/jquery-ui.js" type="text/javascript"></script>
+    <script src="js/jquery.maskedinput.js" type="text/javascript"></script>
+    <link href="css/examples.css" rel="stylesheet" type="text/css" />
+
+    <script type="text/javascript">
+        function validate_require() {
+            var job = $("#<%= JobDropDown.ClientID %>").val();
+            var oper = $("#<%= OperationDropDown.ClientID %>").val();
+            var user = $("#<%= UserDropDown.ClientID %>").val();
+            var employee = $("#<%= EmpNumDropDown.ClientID %>").val();
+            var shift = $("#<%= ShiftDropDown.ClientID %>").val();
+            var machine = $("#<%= MachineDropDown.ClientID %>").val();
+            var start_time = $("#<%= StartTimeTextBox.ClientID %>").val();
+            var end_time = $("#<%= EndTimeTextBox.ClientID %>").val();
+            var prod_shift = $("#<%= ProductionShiftDropDown.ClientID %>").val();
+
+            if (job == '' || job == null) {
+                alert('โปรดเลือกใบสั่งงาน !!!');return false;
+            }
+
+            if (oper == '' || oper == null) {
+                alert('โปรดเลือกลำดับผลิต !!!');return false;
+            }
+
+            if (user == '' || user == null) {
+                alert('โปรดเลือกผู้ทำรายการ !!!'); return false;
+            }
+
+            if (employee == '' || employee == null) {
+                alert('โปรดเลือกพนักงาน !!!'); return false;
+            }
+
+            if (shift == '' || shift == null) {
+                alert('โปรดเลือกกะ !!!'); return false;
+            }
+
+            if (machine == '' || machine == null) {
+                alert('โปรดเลือกเครื่องจักร !!!');return false;
+            }
+
+            if (prod_shift == '' || prod_shift == null) {
+                alert('โปรดเลือกกะผลิต !!!');return false;
+            }
+
+            if (start_time == '' || start_time == '00:00' || start_time == null) {
+                alert('โปรดกำหนดเวลาเริ่ม !!!'); return false;
+            }
+
+            if (end_time == '' || end_time == '00:00' || end_time == null) {
+                alert('โปรดกำหนดเวลาเสร็จ !!!'); return false;
+            }
+
+            
+        }
+
+    </script>
+</asp:Content>
+<asp:Content ID="Content2" ContentPlaceHolderID="ContentPlaceHolder1" Runat="Server">
+    <asp:ScriptManager ID="ScriptManager1" runat="server">
+    </asp:ScriptManager>
+
+    <div class="row" style="padding-top: 10px">
+    <div class="col-lg-12">
+        <div class="panel panel-default">
+            <div class="panel-heading"><label>Unposted Job Transactions</label></div>
+            <div class="panel-body">
+                <table>
+                    <tr>
+                        <td colspan="6">
+                               <asp:Panel ID="NotPassNotifyPanel" runat="server" CssClass= "alert alert-danger alert-dismissable" Visible="false">
+                                    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+                                    <asp:Literal ID="NotPassText" runat="server"></asp:Literal>
+                               </asp:Panel>
+                               <asp:Panel ID="PassNotifyPanel" runat="server" CssClass= "alert alert-success alert-dismissable" Visible="false">
+                                    <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+                                    <asp:Literal ID="PassText" runat="server"></asp:Literal>
+                               </asp:Panel>
+                        </td> 
+                    </tr>
+
+                    <tr>
+                        <td style="text-align: right"><label>บาร์โค้ด</label></td>
+                        <td colspan="3" style="padding-left:5px; padding-bottom: 5px">
+                            <table>
+                                <tr>
+                                    <td><asp:TextBox ID="BarCodeTextBox" runat="server" Width="300px" 
+                                            CssClass="form-control" AutoPostBack="True"
+                                            OnTextChanged="BarCodeTextBox_TextChanged" MaxLength="20" style="text-transform:uppercase"></asp:TextBox></td>
+                                </tr>                         
+                            </table>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="text-align: right; width: 100px"><label>ประเภทรายการ</label></td>
+                        <td style="padding-bottom: 5px; padding-left:5px;">
+                            <asp:DropDownList ID="TransTypeDropDown" runat="server" CssClass="form-control" Width="150px">
+                                <asp:ListItem Value="R">Run</asp:ListItem>
+                                <asp:ListItem Value="C">Machine</asp:ListItem>
+                            </asp:DropDownList>
+                        </td>
+                        <td style="text-align: right; width: 100px"><label>วันที่ทำรายการ</label></td>
+                        <td style="padding-bottom: 5px; padding-left:5px;">
+                            <asp:TextBox ID="TransDateTextBox" runat="server" Width="100px" 
+                                CssClass="form-control"></asp:TextBox>
+                            <asp:HiddenField ID="TransDateHiddenField" runat="server" />
+
+                        </td>
+                        <td style="text-align: right"><label>หมายเลขรายการ</label></td>
+                        <td style="padding-bottom: 5px; padding-left:5px;">
+                            <asp:TextBox ID="TransNumTextBox" runat="server" Width="100px" 
+                                CssClass="form-control" 
+                                style="text-align:center; font-weight: bold" Font-Size="Medium" 
+                                ReadOnly="True"></asp:TextBox></td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: right"><label>ใบสั่งผลิต</label></td>
+                        <td style="padding-bottom: 5px">
+                        <table>
+                            <tr>
+                            <td style="padding-left:5px">
+                                <asp:DropDownList ID="JobDropDown" runat="server" CssClass="form-control" Width="150px" BackColor="#FFFF99" style="display:none">
+                                </asp:DropDownList>
+
+                                <div id="div-job">
+                                    <asp:TextBox ID="JobTextBox" runat="server" CssClass="form-control typeahead" Width="250px" AutoPostBack="True" OnTextChanged="JobTextBox_TextChanged" 
+                                        MaxLength="10"></asp:TextBox>
+                                </div>
+
+                                </td><td style="padding-left: 5px"><asp:TextBox ID="SuffixTextBox" runat="server" Width="60px" CssClass="form-control">0000</asp:TextBox></td>
+                            </tr>
+                        </table>
+                        </td>
+                        <td style="text-align: right"><label>ลำดับผลิต</label></td>
+                        <td style="padding-bottom: 5px; padding-left:5px;">
+                            <asp:DropDownList ID="OperationDropDown" runat="server" AutoPostBack="true" 
+                                CssClass="form-control" Width="150px" BackColor="#FFFF99">
+                            </asp:DropDownList>
+                            <asp:HiddenField ID="PrintOptionHiddenFields" runat="server" />
+                        </td>
+                        <td style="text-align: right"><label>ศูนย์ผลิต</label></td>
+                        <td style="padding-bottom: 5px; padding-left:5px;">
+                        <table>
+                        <tr>
+                            <td><asp:TextBox ID="WcTextBox" runat="server" ReadOnly="True" Width="80px" 
+                                CssClass="form-control"></asp:TextBox></td><td style="padding-left:5px">
+                                <asp:TextBox ID="WcDescriptionTextBox" runat="server" ReadOnly="True" 
+                                CssClass="form-control" Width="215px"></asp:TextBox></td>
+                        </tr>
+                        </table>
+                        </td>
+                    </tr>
+   
+                    <tr>
+                        <td style="text-align: right"><label>รหัสสินค้า</label></td>
+                        <td colspan="3" style="padding-left:5px; padding-bottom: 5px">
+                            <table>
+                                <tr>
+                                    <td><asp:TextBox ID="ItemTextBox" runat="server" ReadOnly="True" 
+                                    CssClass="form-control" Width="100px" ></asp:TextBox></td><td style="padding-left:5px"><asp:TextBox ID="ItemDescriptionTextBox" runat="server" ReadOnly="True" 
+                                    Width="300px" CssClass="form-control"></asp:TextBox>
+                                    </td><%--<td style="padding-left:5px"><asp:Label ID="lblTagType" runat="server" Visible="true" ForeColor="White"></asp:Label></td>--%>
+                                </tr>
+                            </table>
+                        </td>
+                        <td style="text-align: right"><label>ผู้ทำรายการ</label></td>
+                        <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:DropDownList ID="UserDropDown" runat="server" 
+                                style="text-align: left" CssClass="form-control" Width="300px" Enabled="False"> 
+                                </asp:DropDownList>
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td style="text-align: right"><label>คลังสินค้า</label></td>
+                        <td colspan="3" style="padding-left:5px; padding-bottom: 5px">
+                            <asp:TextBox ID="UserCodeTextBox" runat="server" CssClass="form-control" Visible="false" Width="80px"></asp:TextBox>
+                            <asp:TextBox ID="WhseTextBox" runat="server" CssClass="form-control" Width="100px" Visible="true" ReadOnly="true"></asp:TextBox>
+                            <asp:TextBox ID="CloseJobTextBox" runat="server" Width="80px" CssClass="form-control" Visible="false" style="text-align:center">0</asp:TextBox>
+                            <asp:TextBox ID="IssueParentsTextBox" runat="server" Width="80px" CssClass="form-control" Visible="false"></asp:TextBox>
+                            <asp:TextBox ID="CompleteOperTextBox" runat="server" Width="80px" CssClass="form-control" Visible="false" style="text-align:center">0</asp:TextBox>
+                            <asp:TextBox ID="PrRateTextBox" runat="server"  Width="80px"
+                                CssClass="form-control" style="text-align:center" Visible="False">0.000</asp:TextBox>
+                            <asp:TextBox ID="JobRateTextBox" runat="server"  Width="80px" 
+                                CssClass="form-control" style="text-align:center" Visible="False">0.000</asp:TextBox>
+                            <asp:TextBox ID="LowLevelTextBox" runat="server"  Width="80px" CssClass="form-control" Visible="false"></asp:TextBox>
+                            <asp:TextBox ID="BackflushTextBox" runat="server"  Width="80px" CssClass="form-control" Visible="false"></asp:TextBox>
+                            <asp:HiddenField ID="ActiveTabTextBox" runat="server" Value= "a_detail" />
+                        </td>
+                        <td style="text-align: right">
+                            &nbsp;</td>
+                        <td style="padding-left:5px; padding-bottom: 5px; padding-top:10px">
+                            <table>
+                                <tr>
+                                    <td>
+                                        <asp:Button ID="SaveButton" runat="server" Text="บันทึก" Width="100px" CssClass="btn btn-success" OnClientClick= "javascript:return validate_require();" /></td>
+                                    <td style="padding-left:5px"><asp:Button ID="ProcessButton" runat="server" Text="ดำเนินการ" Width="100px" CssClass="btn btn-primary" OnClientClick="javascript:return confirm('ยืนยันการทำรายการ?');" /></td>
+                                    <td style="padding-left:5px"><asp:Button ID="DeleteButton" runat="server" Text="ลบ" Width="100px" CssClass="btn btn-danger" OnClientClick="javascript:return confirm('ยืนยันการลบ?');" /></td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                </table>
+
+
+                <!-- Nav tabs -->
+                <ul class="nav nav-pills">
+                    <li id="l_detail"><a href="#unposted-detail" data-toggle="tab" id="a_detail">รายละเอียด</a></li>
+                    <li id="l_scrap"><a href="#unposted-scrapped" data-toggle="tab" id="a_scrap">ของเสีย</a></li>
+                    <li id="l_dt"><a href="#unposted-lost-time" data-toggle="tab" id="a_dt">เวลาสูญเสียการผลิต</a></li>
+                    <li id="l_bf"><a href="#unposted-bf" data-toggle="tab" id="a_bf">แบคฟลัช</a></li>
+                    <li id="l_tag"><a href="#unposted-tag" data-toggle="tab" id="a_tag" onclick="a_tag_onclick">แก้ไขแท็ก</a></li>
+                    <li id="l_fraction"><a href="#unposted-fraction" data-toggle="tab" id="a_fraction">เศษ</a></li>
+                </ul>
+                
+                <!-- Tab panes -->
+                
+                <div class="tab-content">
+
+                    <div id="unposted-detail" style="display: none">
+                        <table>
+                        <tr>
+                            <td style="text-align: right"><label>พนักงาน</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:DropDownList ID="EmpNumDropDown" runat="server" CssClass="form-control" 
+                                    Width="200px" BackColor="#FFFF99" AutoPostBack="true">
+                                </asp:DropDownList>
+                            </td>
+                            <td style="text-align: right"><label>กะ</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:DropDownList ID="ShiftDropDown" runat="server" CssClass="form-control" 
+                                    Width="100px" BackColor="#FFFF99">
+                                </asp:DropDownList>
+                            </td>
+                            <td style="text-align: right"><label>Pay Type</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:DropDownList ID="PayTypeDropDown" runat="server" CssClass="form-control" 
+                                    Width="236px" BackColor="#FFFF99">
+                                    <asp:ListItem Value="R">Regular</asp:ListItem>
+                                    <asp:ListItem Value="O">Over Time</asp:ListItem>
+                                    <asp:ListItem Value="D">Double - Time</asp:ListItem>
+                                </asp:DropDownList>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="text-align: right"><label>เครื่องจักร</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:DropDownList ID="MachineDropDown" runat="server" CssClass="form-control" 
+                                    Width="200px" BackColor="#FFFF99">
+                                </asp:DropDownList>
+                            </td>
+                            <td style="text-align: right"><label>กะผลิต</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:DropDownList ID="ProductionShiftDropDown" runat="server" CssClass="form-control" BackColor="#FFFF99"
+                                    Width="100px">
+                                </asp:DropDownList>
+                            </td>
+                            <td style="text-align: right"><label>อัตราผลิต(ชิ้น/ชั่วโมง)</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:TextBox ID="PcsPerHrsTextBox" runat="server" Width="100px" CssClass="form-control" style="text-align:center">0.000</asp:TextBox>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="text-align: right"><label>ของดี</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <table>
+                                    <tr>
+                                        <td>
+                                            <asp:TextBox ID="CompleteQtyTextBox" runat="server" Width="120px" AutoPostBack="true" CssClass="form-control" style="text-align: center" BackColor="#FFFF99">0</asp:TextBox>
+                                        </td>
+                                        <td style="padding-left:5px"><asp:TextBox ID="CompleteUMTextBox" runat="server" 
+                                                Width="60px" CssClass="form-control" ReadOnly="true"></asp:TextBox></td>
+                                    </tr>
+                                </table>
+            
+            
+                            </td>
+                            <td style="text-align: right"><label>เคลื่อนย้าย</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <table>
+                                    <tr>
+                                        <td><asp:TextBox ID="MoveQtyTextBox" runat="server" Width="120px" CssClass="form-control" style="text-align: center" MaxLength="15">0</asp:TextBox></td>
+                                        <td style="padding-left:5px"><asp:TextBox ID="MoveQtyUM" runat="server" 
+                                                Width="60px" CssClass="form-control" ReadOnly="true"></asp:TextBox></td>
+                                    </tr>
+                                </table>
+                            </td>
+
+                            <td style="text-align: right"><label>เวลาเริ่ม</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                
+                                <asp:TextBox ID="StartTimeTextBox" runat="server" Width="100px" BackColor="#FFFF99"
+                                    CssClass="form-control" style="text-align:center">00:00</asp:TextBox>
+                                <asp:HiddenField ID="StartTimeSecTextBox" runat="server" />
+                            </td>
+                        </tr>
+   
+                        <tr>
+                            <td style="text-align: right"><label>ลำดับผลิตถัดไป</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:DropDownList ID="NextOperDropDown" runat="server" CssClass="form-control" Width="150px" Enabled="false">
+                                </asp:DropDownList>
+                            </td>
+                            <td style="text-align: right"><label>จำนวนเศษ</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:TextBox ID="txtFraction" runat="server" Width="100px" Enabled="false"
+                                    CssClass="form-control" style="text-align:center" Text = "0"></asp:TextBox>
+                            </td>
+                            <%--<td style="text-align: right">&nbsp;</td>
+                            <td style="text-align: right">
+                                &nbsp;</td>--%>
+                            <td style="text-align: right">
+                                <label>เวลาเสร็จ</label></td>
+                            <td style="text-align: right; padding-left:5px; padding-bottom: 5px">
+                                <asp:TextBox ID="EndTimeTextBox" runat="server" Width="100px" CssClass="form-control" style="text-align:center" BackColor="#FFFF99">00:00</asp:TextBox>
+                                <asp:HiddenField ID="EndTimeSecTextBox" runat="server" />
+                            </td>
+                        </tr>
+   
+                        <tr>
+                            <td style="text-align: right"><label>ศูนย์ผลิตถัดไป</label></td>
+                            <td colspan="3" style="padding-left:5px; padding-bottom: 5px">
+                                <table>
+                                    <tr>
+                                        <td><asp:TextBox ID="NextWcTextBox" runat="server" ReadOnly="True" Width="80px" CssClass="form-control"></asp:TextBox></td><td style="padding-left:5px">
+                                            <asp:TextBox ID="NextWcDescription" runat="server" ReadOnly="True" CssClass="form-control" Width="215px"></asp:TextBox></td>
+                                    </tr>
+
+                                </table>
+                            </td>
+                            <td style="text-align: right"><label>จำนวนชั่วโมง</label></td>
+                            <td style="text-align: right; padding-left:5px; padding-bottom: 5px">
+                                <asp:TextBox ID="TotalHoursTextBox" runat="server" Width="100px" 
+                                    CssClass="form-control" style="text-align:center" >0.000</asp:TextBox>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="text-align: right"><label>ย้ายไปจัดเก็บที่</label></td>
+                            <td colspan="3" style="padding-left:5px; padding-bottom: 5px">
+                                <table>
+                                    <tr>
+                                        <td><asp:DropDownList ID="MoveToLocationDropDown" runat="server" CssClass="form-control" Width="150px" AutoPostBack="True"></asp:DropDownList>
+                                        </td>
+                                        <td style="padding-left:5px"><asp:TextBox ID="MoveToLocationDescTextBox" runat="server" ReadOnly="True" CssClass="form-control" Width="215px"></asp:TextBox></td>
+                                    </tr>
+                                </table>
+                            </td>
+                            <td style="text-align: right"><label>จำนวนพนักงาน</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:TextBox ID="EmpCountTextBox" runat="server" Width="100px" CssClass="form-control" style="text-align: center">0</asp:TextBox>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="text-align: right"><label>ล็อต/Lot</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:DropDownList ID="LotDropDown" runat="server" CssClass="form-control" Width="190px" Enabled="False" AutoPostBack="true">
+                                </asp:DropDownList> 
+                                <asp:TextBox ID="txtlot" runat="server" Visible="false"></asp:TextBox>
+                            </td>
+
+                            <td style="text-align: right"><label>Fraction Location</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:TextBox ID="txtFractionLoc" runat="server" Width="190px" Enabled="false"
+                                    CssClass="form-control" style="text-align:center"></asp:TextBox>
+                            </td>
+
+                            <td style="text-align: right"><label>ชั่วโมงแรงงาน</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:TextBox ID="ManHoursTextBox" runat="server" Width="100px" CssClass="form-control" style="text-align:center">0.000</asp:TextBox>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="text-align: right"></td>
+                            <td colspan="3" style="padding-left:5px; padding-bottom: 5px">
+                                <table><tr><td><asp:TextBox ID="LotTextBox" runat="server" Width="200px" CssClass="form-control" MaxLength="15"></asp:TextBox></td><td style="padding-left:5px"><asp:Button ID="AddLotButton" runat="server" Text="เพิ่มล็อต" CssClass="btn btn-default" /></td></tr></table>
+                               
+                            </td>
+                            <td style="text-align: right"><label>ชั่วโมงลางาน</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                   <asp:TextBox ID="LeaveHoursTextBox" runat="server" Width="100px" 
+                                    CssClass="form-control" style="text-align:center">0.000</asp:TextBox>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td style="text-align: right; vertical-align:top"><label>หมายเหตุ</label></td>
+                            <td colspan="3" style="padding-left:5px; padding-bottom: 5px; vertical-align:top" rowspan="2">
+                                <asp:TextBox ID="RemarkTextBox" runat="server" TextMode="MultiLine" 
+                                    Width="369px" CssClass="form-control"></asp:TextBox>
+                            </td>
+                            <td style="text-align: right"><label>หัวหน้างาน</label></td>
+                            <td style="padding-left:5px; padding-bottom: 5px">
+                                <asp:DropDownList ID="HeadDropDown" runat="server" CssClass="form-control"></asp:DropDownList>
+                            </td>
+                        </tr>
+
+                    </table>
+
+                    </div>
+                            
+                    <div id="unposted-scrapped" style="display:none">
+                        <asp:GridView ID="ScrappedGridView" runat="server" AutoGenerateColumns="false" CssClass="table table-striped table-bordered table-hover" ShowFooter="false" ShowHeader="true">
+
+                         <Columns>
+                            <asp:TemplateField>
+                                <ItemTemplate>
+                                    <asp:Button ID="DeleteButton" runat="server" Text="ลบ" CssClass= "btn btn-danger" UseSubmitBehavior="false" CommandName="DeleteScrap" CommandArgument='<%# Eval("RowPointer") %>' />
+                               </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Reason Code">
+                                <ItemTemplate>
+                                    <asp:Label ID="ReasonCodeLabel" runat="server" Text='<%# Eval("ReasonCode") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText = "Reason Description">
+                                <ItemTemplate>
+                                    <asp:Label ID="ReasonDescriptionLabel" runat="server" Text='<%# Eval("ReasonDescription") %>' style="text-align:center; vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Qty.">
+                                <ItemTemplate>
+                                    <asp:Label ID="ScrapQtyConvLabel" runat="server" Text='<%# Eval("Qty", "{0:N3}") %>' style="text-align:center; vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="UM">
+                                <ItemTemplate>
+                                    <asp:Label ID="ScrapUMLabel" runat="server" Text='<%# Eval("UM") %>' style="text-align:center; vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Qty.">
+                                <ItemTemplate>
+                                    <asp:Label ID="ScrapQtyLabel" runat="server" Text='<%# Eval("QtyConv", "{0:N3}") %>' style="text-align:center"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Base UM">
+                                <ItemTemplate>
+                                    <asp:Label ID="ScrapBaseUMLabel" runat="server" Text='<%# Eval("BaseUM") %>' style="text-align:center; vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                         </Columns>
+                        </asp:GridView>
+
+                        <%--<asp:ScriptManager ID="ScriptManager2" runat="server" ></asp:ScriptManager>--%>
+                        <%--<asp:UpdatePanel ID="UpdatePanel1" runat="server">
+                       <ContentTemplate>--%>
+                            <table class="table table-striped table-bordered table-hover" style="border-collapse:collapse;">
+                            <tr>
+                                <td>
+                                    <asp:Button ID="AddEmptyScrapButton" runat="server" Text="เพิ่ม" CssClass="btn btn-default" CommandName="AddEmpty" UseSubmitBehavior="false" /></td>
+                                <td>
+                                    <asp:DropDownList ID="EmptyReasonDropDown" runat="server" CssClass="form-control" Width="300px">
+                                    </asp:DropDownList>
+                                </td>
+                                <%--<td><asp:TextBox ID="EmptyReasonTextBox" runat="server" Enabled="false" CssClass="form-control" Width="300px"></asp:TextBox></td>--%>
+                                <td><asp:TextBox ID="EmptyQtyTextBox" runat="server" CssClass="form-control" Width="100px" style="text-align: center" Text="0.000" AutoPostBack="true"></asp:TextBox></td>
+                                <td><asp:DropDownList ID="EmptyUMDropDown" runat="server" CssClass="form-control" Width="100px" DataSourceID="UMDataSource"  DataTextField="UM"  DataValueField="UM" Enabled="false"></asp:DropDownList></td>
+                                <td><asp:TextBox ID="EmptyQtyConvTextBox" runat="server" Enabled="false" CssClass="form-control"  Width="100px" Text="0.000" style="text-align: center"></asp:TextBox></td>
+                                <td><asp:TextBox ID="EmptyBasedUMTextBox" runat="server" Enabled="false" CssClass="form-control" Width="100px" style="text-align: center"></asp:TextBox></td>
+                            </tr>
+	                    </table>
+                       <%--</ContentTemplate>
+                        <Triggers>
+                            <asp:PostBackTrigger ControlID="AddEmptyScrapButton" />
+                        </Triggers>
+                        </asp:UpdatePanel>--%>
+                                 </div>
+
+                    <div id="unposted-bf" style="display: none">
+                        <div>
+                            <table>
+                                <tr>
+                                    <td><label>แท็ก</label></td>
+                                    <td style="padding-left: 5px"><asp:TextBox ID="RMTagTextBox" runat="server" Width="300px" CssClass="form-control" AutoPostBack="True" 
+                                    OnTextChanged="RMTagTextBox_TextChanged"></asp:TextBox></td>
+                                    <td style="padding-left: 200px"><asp:Button ID="ResetBfTagButton" runat="server" Text="ลบแท็กแบคฟลัช" Width="300px" CssClass="btn btn-default" OnClientClick="javascript:return confirm('Clear backflush tag data?');" /></td>
+                                </tr>
+                            </table>
+                        </div>
+                        
+                        <asp:GridView ID="BFGridView" runat="server" AutoGenerateColumns="false" CssClass="table table-striped table-bordered table-hover" ShowFooter="false" ShowHeader="true" Width="1200px">
+                         <Columns>
+                            <asp:TemplateField>
+                                <ItemStyle Width="50px" />
+                                <ItemTemplate>
+                                    <asp:CheckBox ID="SelectCheckBox" runat="server" Checked= '<%# Eval("Selected") %>' AutoPostBack="true" OnCheckedChanged="SelectCheckBox_CheckedChanged" />
+                               </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Tag ID." Visible="false">
+                                <ItemStyle Width="200px" HorizontalAlign="Left" Font-Size="Small" />
+                                <ItemTemplate>
+                                    <asp:Label ID="TagIDLabel" runat="server" Text='<%# Eval("UbTagID") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Item">
+                                <ItemStyle Width="200px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="ItemLabel" runat="server" Text='<%# Eval("Item") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Description">
+                                <ItemStyle Width="200px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="DescriptionLabel" runat="server" Text='<%# Eval("Description") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Lot">
+                                <ItemStyle Width="150px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="LotLabel" runat="server" Text='<%# Eval("Lot") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Qty. On Hand">
+                                <ItemStyle HorizontalAlign="Right" Width="200px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="QtyOnHandLabel" runat="server" Text='<%# Eval("QtyOnHand" , "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Quantity">
+                                <ItemStyle Width="150px" />
+                                <ItemTemplate>
+                                    <asp:TextBox ID="QtyRequiredTextBox" ReadOnly="false" runat="server"
+                                                AutoPostBack="true" OnTextChanged="QtyRequiredTextBox_TextChanged"
+                                                Text='<%# Eval("QtyRequired", "{0:N3}") %>' CssClass="form-control numeric" 
+                                                style="vertical-align:middle; width: 100px; text-align:center"></asp:TextBox>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="U/M">
+                                <ItemStyle Width="100px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="UMLabel" runat="server" Text='<%# Eval("UM") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Seq">
+                                <ItemStyle HorizontalAlign="Center" />
+                                <ItemTemplate>
+                                    <asp:Label ID="SeqLabel" runat="server" Text='<%# Eval("Sequence") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+                           
+                            <asp:TemplateField HeaderText="Operation">
+                                <ItemStyle Width="100px" HorizontalAlign="Center" />
+                                <ItemTemplate>
+                                    <asp:Label ID="OperationLabel" runat="server" Text='<%# Eval("OperNum") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Tag Qty.">
+                                <ItemStyle Width="150px" HorizontalAlign="Center" Font-Bold="true" />
+                                <ItemTemplate>
+                                    <asp:Label ID="IssueQtyLabel" runat="server" Text='<%# Eval("UbIssueQty", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Quantity Needed" Visible="false">
+                                <ItemStyle HorizontalAlign="Right" Width="200px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="QtyNeededLabel" runat="server" Text='<%# Eval("QtyNeeded", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Warehouse" Visible="false">
+                                <ItemStyle Width="100px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="WhseLabel" runat="server" Text='<%# Eval("Whse") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Location" Visible="false">
+                                <ItemStyle Width="100px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="LocationLabel" runat="server" Text='<%# Eval("Loc") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Employee" Visible="false">
+                                <ItemStyle Width="100px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="EmployeeLabel" runat="server" Text='<%# Eval("EmpNum") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                           <asp:TemplateField HeaderText="Wc" Visible="false">
+                                <ItemStyle Width="100px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="WcLabel" runat="server" Text='<%# Eval("Wc") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                           <asp:TemplateField HeaderText="TransClass" Visible="false">
+                                <ItemStyle Width="100px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="TransClassLabel" runat="server" Text='<%# Eval("TransClass") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                           <asp:TemplateField HeaderText="TransSeq" Visible="false">
+                                <ItemStyle Width="100px" />
+                                <ItemTemplate>
+                                    <asp:Label ID="TransSeqLabel" runat="server" Text='<%# Eval("TransSeq") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                         </Columns>
+                        </asp:GridView>
+
+                        <div style="padding-top: 10px">
+                            <asp:GridView ID="MatchedGridView" runat="server" AutoGenerateColumns="false" CssClass="table table-striped table-bordered table-hover" ShowFooter="false" ShowHeader="true" Width="600px">
+
+                             <Columns>
+                                <asp:TemplateField>
+                                    <ItemStyle Width="50px" />
+                                    <ItemTemplate>
+                                        <asp:CheckBox ID="SelectCheckBox" runat="server" Checked= '<%# Eval("Matched") %>' Enabled= "false" />
+                                   </ItemTemplate>
+                                </asp:TemplateField>
+
+                                <asp:TemplateField HeaderText="Operation">
+                                    <ItemStyle Width="100px" HorizontalAlign="Center" />
+                                    <ItemTemplate>
+                                        <asp:Label ID="OperationLabel" runat="server" Text='<%# Eval("OperNum") %>' style="vertical-align:middle"></asp:Label>
+                                    </ItemTemplate>
+                                </asp:TemplateField>
+
+                                 <asp:TemplateField HeaderText="Job">
+                                    <ItemStyle Width="100px" />
+                                    <ItemTemplate>
+                                        <asp:Label ID="JobLabel" runat="server" Text='<%# Eval("Job") %>' style="vertical-align:middle"></asp:Label>
+                                    </ItemTemplate>
+                                </asp:TemplateField>
+                                 
+                                <asp:TemplateField HeaderText="Sequence">
+                                    <ItemStyle Width="100px" HorizontalAlign="Center" />
+                                    <ItemTemplate>
+                                        <asp:Label ID="SequenceLabel" runat="server" Text='<%# Eval("Sequence") %>' style="vertical-align:middle"></asp:Label>
+                                    </ItemTemplate>
+                                </asp:TemplateField>
+
+                               <asp:TemplateField HeaderText="Target Qty.">
+                                    <ItemStyle Width="200px" HorizontalAlign="Right" />
+                                    <ItemTemplate>
+                                        <asp:Label ID="TargetQtyLabel" runat="server" Text='<%# Eval("TargetQty", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                    </ItemTemplate>
+                                </asp:TemplateField>
+
+                               <asp:TemplateField HeaderText="Selected Qty.">
+                                    <ItemStyle Width="200px" HorizontalAlign="Right" />
+                                    <ItemTemplate>
+                                        <asp:Label ID="SelectedQtyLabel" runat="server" Text='<%# Eval("SelectedQty", "{0:N3}") %>' style="vertical-align:middle"></asp:Label>
+                                    </ItemTemplate>
+                                </asp:TemplateField>
+
+                                <asp:TemplateField HeaderText="Remaining Qty.">
+                                    <ItemStyle Width="200px" HorizontalAlign="Right" />
+                                    <ItemTemplate>
+                                        <asp:Label ID="RemainingQtyLabel" runat="server" Text="0.000" style="vertical-align:middle"></asp:Label>
+                                    </ItemTemplate>
+                                </asp:TemplateField>
+
+                             </Columns>
+                            </asp:GridView>
+                        </div>
+                    </div>
+                                        
+                    <div id="unposted-lost-time" style="display: none">
+                    <asp:GridView ID="DTGridView" runat="server" AutoGenerateColumns="false" CssClass="table table-striped table-bordered table-hover" ShowFooter="false" ShowHeader="true">
+                         <Columns>
+                            <asp:TemplateField ItemStyle-Width="100px">
+                                <ItemTemplate>
+                                    <asp:Button ID="DTDeleteButton" runat="server" Width="100px" Text="ลบ" CssClass= "btn btn-danger" UseSubmitBehavior="false" CommandName="DeleteDT" CommandArgument='<%# Eval("RowPointer") %>' />
+                               </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="DT Code" ItemStyle-Width="100px">
+                                <ItemTemplate>
+                                    <asp:Label ID="DTCodeLabel" runat="server" Text='<%# Eval("ReasonCode") %>' style="vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText = "Down Time Description" ItemStyle-Width="300px">
+                                <ItemTemplate>
+                                    <asp:Label ID="DTDescriptionLabel" runat="server" Text='<%# Eval("ReasonDescription") %>' style="text-align:center; vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Start Time" ItemStyle-Width="200px" Visible="false">
+                                <ItemTemplate>
+                                    <asp:Label ID="DTStartTimeLabel" runat="server" Text='<%# Eval("DerStartTimeMin") %>' style="text-align:center; vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="End Time" ItemStyle-Width="200px" Visible="false">
+                                <ItemTemplate>
+                                    <asp:Label ID="DTEndTimeLabel" runat="server" Text='<%# Eval("DerEndTimeMin") %>' style="text-align:center; vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Time (Hours)" ItemStyle-Width="150px">
+                                <ItemTemplate>
+                                    <asp:Label ID="DTTotalHoursLabel" runat="server" Text='<%# Eval("AHrs", "{0:N3}") %>' style="text-align:center"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                            <asp:TemplateField HeaderText="Type">
+                                <ItemTemplate>
+                                    <asp:Label ID="DTTypeLabel" runat="server" Text='<%# Eval("DownTimeType") %>' style="text-align:center; vertical-align:middle"></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+
+                         </Columns>
+                        </asp:GridView>
+
+                        <%--<asp:UpdatePanel ID="UpdatePanel2" runat="server">
+                        <ContentTemplate>--%>                       
+                        
+                       <table class="table table-striped table-bordered table-hover" style="border-collapse:collapse;">
+                            <tr>
+                                <td style="width: 100px">
+                                    <asp:Button ID="AddDTButton" runat="server" Text="เพิ่ม" CssClass="btn btn-default" Width="100px" /></td>
+                                <td style="white-space: nowrap">
+                                    <table>
+                                        <tr>
+                                            <td><asp:DropDownList ID="DTCodeDropDown" runat="server" CssClass="form-control" Width="300px" AutoPostBack="true"></asp:DropDownList></td>
+                                            <%--<td style="padding-left:10px"><asp:TextBox ID="DTDescriptionTextBox" runat="server" Enabled="false" CssClass="form-control" Width="300px"></asp:TextBox></td>--%>
+                                            <td style="padding-left:10px"><asp:TextBox ID="DTTotalHrsTextBox" runat="server" CssClass="form-control"  Width="100px" style="text-align: center" Text="0"></asp:TextBox></td>
+                                            <td style="padding-left:5px"><asp:Label ID="MinutesTextBox" runat="server" Text="นาที"></asp:Label></td>
+                                            <td><asp:TextBox ID="DTStartTimeTextBox" runat="server" CssClass="form-control" Width="100px" style="text-align: center; display: none" Text="00:00" ></asp:TextBox></td>
+                                            <td><asp:TextBox ID="DTEndTimeTextBox" runat="server" CssClass="form-control" Width="100px" style="text-align: center; display: none" Text="00:00"></asp:TextBox></td>
+                                            <td style="padding-left:10px"><asp:TextBox ID="DTType" runat="server" Enabled="false" CssClass="form-control" Width="100px" style="text-align: center"></asp:TextBox></td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+	                    </table>
+
+                        <%--</ContentTemplate>
+                        <Triggers>
+                        <asp:PostBackTrigger ControlID="AddDTButton" />
+                        </Triggers>
+                        </asp:UpdatePanel>--%>
+
+                    </div>
+
+                    <div id="unposted-tag" style="display: none">
+                        <table>
+                            <tr><td style="padding-right: 5px">จำนวนสั่งผลิต</td>
+                                <td>
+                                    <asp:TextBox ID="QtyReleasedTextBox" runat="server" CssClass="form-control" ReadOnly="true" Text="0.000" style="text-align: center"></asp:TextBox></td>
+                                <td style="padding-right: 5px; padding-left: 10px">จำนวนรวมในแท็ก</td>
+                                <td>
+                                    <asp:TextBox ID="TotalTagQtyTextBox" runat="server" CssClass="form-control" ReadOnly="true" Text="0.000" style="text-align: center"></asp:TextBox></td>
+                                    <td>
+                                    <asp:TextBox ID="txtQtyBigTag" runat="server" CssClass="form-control" ReadOnly="true" Text="0.000" style="text-align: center" visible="false"></asp:TextBox></td>
+                                    <td>
+                                    <asp:TextBox ID="txtQtySmallTag" runat="server" CssClass="form-control" ReadOnly="true" Text="0.000" style="text-align: center" visible="false"></asp:TextBox></td>
+                            </tr>
+                        </table>
+                        <asp:GridView ID="TagGridView" runat="server" AutoGenerateColumns="false" 
+                                CssClass="table table-striped table-bordered table-hover" 
+                                ShowFooter="false" ShowHeader="true"
+                                OnRowEditing="EditTag"
+                                OnRowUpdating="UpdateTag"
+                                OnRowCancelingEdit="CancelUpdateTag">
+                         <Columns>
+                            <asp:BoundField HeaderText="Seq." DataField="Seq" ItemStyle-HorizontalAlign="Center" ReadOnly="true" />
+                            <asp:BoundField HeaderText="Tag Size" DataField="TagSize" ItemStyle-HorizontalAlign="Center" ReadOnly="true" />
+                            <asp:TemplateField HeaderText="Tag ID.">
+                                <ItemTemplate>
+                                    <asp:Label ID="TagIDLabel" runat="server" Text='<%# Eval("TagID") %>'></asp:Label>
+                                </ItemTemplate>
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="Tag Qty." ItemStyle-HorizontalAlign="Right">
+                                <ItemTemplate>
+                                    <asp:Label ID="TagQtyLabel" runat="server" Text='<%# Eval("TagQty", "{0:N3}") %>'></asp:Label>
+                                </ItemTemplate>
+                                <EditItemTemplate>
+                                    <asp:TextBox ID="TagQtyTextBox" runat="server" Text='<%# Eval("TagQty", "{0:N3}") %>' CssClass="form-control"></asp:TextBox>
+                                </EditItemTemplate>
+                            </asp:TemplateField>
+                            
+                            <asp:BoundField HeaderText="Std. Pack" DataField="StdPack" ItemStyle-HorizontalAlign="Right" ReadOnly="true" />
+
+                            <asp:BoundField HeaderText="Item" DataField="Item" ReadOnly="true" />
+                            <asp:BoundField HeaderText="Lot No." DataField="Lot" Visible="false" ReadOnly="true" />
+                            <asp:BoundField HeaderText="Source Ref." DataField="RefNum" Visible="false" />
+                            <asp:BoundField HeaderText="Item Description" DataField="ItemDescription" ReadOnly="true" />
+                            <asp:BoundField HeaderText="Whse" DataField="Whse" ReadOnly="true" />
+                            <asp:BoundField HeaderText="Location" DataField="Loc" ReadOnly="true" />
+
+                            <asp:CommandField  ShowEditButton="True" ButtonType="Button" ControlStyle-CssClass="btn btn-default" EditText="แก้ไข" CancelText="ยกเลิก" UpdateText="ตกลง" ControlStyle-Width="100px" />
+
+                         </Columns>
+                        </asp:GridView>
+
+                        <asp:HiddenField ID="HiddenField1" runat="server" />
+                        <asp:Button ID="PrintTagButton" runat="server" Text="Preview Tag" ControlStyle-CssClass="btn btn-default" Width="200px" />
+                    </div>
+
+                    <div id="unposted-fraction" style="display: none">
+                       
+                        <asp:GridView ID="GridFraction" runat="server" AutoGenerateColumns="false" 
+                                CssClass="table table-striped table-bordered table-hover" 
+                                ShowFooter="false" ShowHeader="true">
+                         <Columns>
+                          
+                            <asp:BoundField HeaderText="Item" DataField="Item" ReadOnly="true" />
+                            <asp:BoundField HeaderText="Description" DataField="Description" ReadOnly="true" />
+                            <asp:BoundField HeaderText="Lot" DataField="Lot" ReadOnly="true" />
+                            <asp:BoundField HeaderText="Qty Remain" DataField="Quantity" ReadOnly="true" DataFormatString="{0:N3}"  />
+                            <asp:BoundField HeaderText="U/M" DataField="u_m" ReadOnly="true" />
+                            <asp:BoundField HeaderText="Model" DataField="FractionModel" ReadOnly="true" />  
+                            <asp:BoundField HeaderText="Job" DataField="Job" ReadOnly="true" />    
+                            <asp:BoundField HeaderText="Location" DataField="Loc" ReadOnly="true" /> 
+                            <asp:BoundField HeaderText="Warehoure" DataField="Whse" ReadOnly="true" />
+                            <asp:BoundField HeaderText="Tag ID" DataField="TagID" ReadOnly="true" /> 
+
+                         </Columns>
+                        </asp:GridView>
+
+           
+                    </div>
+
+                </div>
+           </div>
+        </div>
+    </div>
+</div>
+
+   <%-- <asp:Label ID="Label1" runat="server" Text="Label" ToolTip="ลาเบล"></asp:Label>--%>
+   <asp:Label ID="Label1" runat="server" Text="0" Visible="false"></asp:Label>
+   <asp:Label ID="Label2" runat="server" Text="0" Visible="false"></asp:Label>
+   <%--<asp:Button ID="Button1" runat="server" Text="Button" />
+    <asp:Label ID="Label3" runat="server" Text="Label3"></asp:Label>--%>
+
+
+<asp:ObjectDataSource ID="ScrapReasonCodeDataSource" runat="server" TypeName="WebService" SelectMethod="GetMFGScrapReasonCode"></asp:ObjectDataSource>
+<asp:ObjectDataSource ID="UMDataSource" runat="server" TypeName="WebService" SelectMethod="GetUM"></asp:ObjectDataSource>
+<asp:ObjectDataSource ID="DownTimeReasonCodeDataSource" runat="server" TypeName="WebService" SelectMethod="GetDownTimeReasonCode"></asp:ObjectDataSource>
+
+<!-- jQuery -->
+<!-- Bootstrap Core JavaScript -->
+<script src="bower_components/bootstrap/dist/js/bootstrap.min.js" type="text/javascript"></script>
+<!-- Metis Menu Plugin JavaScript -->
+<script src="bower_components/metisMenu/dist/metisMenu.min.js" type="text/javascript"></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="dist/js/sb-admin-2.js" type="text/javascript"></script>
+
+<!-- DataTables JavaScript -->
+<script src="bower_components/DataTables/media/js/jquery.dataTables.min.js" type="text/javascript"></script>
+<script src="bower_components/datatables-plugins/integration/bootstrap/3/dataTables.bootstrap.min.js" type="text/javascript"></script>
+
+<script src="js/typeahead.bundle.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+    function switch_tab() {
+        (function ($) {
+            $.fn.invisible = function () {
+                return this.each(function () {
+                    $(this).css("display", "none");
+                });
+            };
+            $.fn.visible = function () {
+                return this.each(function () {
+                    $(this).css("display", "block");
+                });
+            };
+        } (jQuery));
+
+        var a_text = $('#<%= ActiveTabTextBox.ClientID%>').val();
+        $('#l_detail').removeClass();
+        $('#l_scrap').removeClass();
+        $('#l_dt').removeClass();
+        $('#l_bf').removeClass();
+        $('#l_tag').removeClass();
+        $('#l_fraction').removeClass();
+
+        if (a_text == 'a_detail') {
+            $('#l_detail').addClass('active');
+            $('#unposted-detail').addClass('tab-pane fade in active');
+
+            $('#unposted-detail').visible();
+            $('#unposted-scrapped').invisible();
+            $('#unposted-lost-time').invisible();
+            $('#unposted-bf').invisible();
+            $('#unposted-tag').invisible();
+            $('#unposted-fraction').invisible();
+        }
+        else if (a_text == 'a_scrap') {
+            $('#l_scrap').addClass('active');
+            $('#unposted-scrapped').addClass('tab-pane fade in active');
+
+            $('#unposted-scrapped').visible();
+            $('#unposted-detail').invisible();
+            $('#unposted-lost-time').invisible();
+            $('#unposted-bf').invisible();
+            $('#unposted-tag').invisible();
+            $('#unposted-fraction').invisible();
+        }
+        else if (a_text == 'a_dt') {
+            $('#l_dt').addClass('active');
+            $('#unposted-lost-time').addClass('tab-pane fade in active');
+
+            $('#unposted-lost-time').visible();
+            $('#unposted-detail').invisible();
+            $('#unposted-scrapped').invisible();
+            $('#unposted-bf').invisible();
+            $('#unposted-tag').invisible();
+            $('#unposted-fraction').invisible();
+        }
+        else if (a_text == 'a_bf') {
+            $('#l_bf').addClass('active');
+            $('#unposted-bf').addClass('tab-pane fade in active');
+
+            $('#unposted-bf').visible();
+            $('#unposted-lost-time').invisible();
+            $('#unposted-detail').invisible();
+            $('#unposted-scrapped').invisible();
+            $('#unposted-tag').invisible();
+            $('#unposted-fraction').invisible();
+            $("#<%= RMTagTextBox.ClientID %>").focus();
+        }
+        else if (a_text == 'a_tag') {
+            $('#l_tag').addClass('active');
+            $('#unposted-tag').addClass('tab-pane fade in active');
+
+            $('#unposted-tag').visible();
+            $('#unposted-bf').invisible();
+            $('#unposted-lost-time').invisible();
+            $('#unposted-detail').invisible();
+            $('#unposted-scrapped').invisible();
+            $('#unposted-fraction').invisible();
+
+        }
+        else if (a_text == 'a_fraction') {
+            $('#l_fraction').addClass('active');
+            $('#unposted-fraction').addClass('tab-pane fade in active');
+
+            $('#unposted-fraction').visible();
+            $('#unposted-bf').invisible();
+            $('#unposted-lost-time').invisible();
+            $('#unposted-detail').invisible();
+            $('#unposted-scrapped').invisible();
+            $('#unposted-tag').invisible();
+
+        }
+
+    }
+
+    function CalTotalHrs(start_time, end_time, out_text_input) {
+        var d1 = new Date("Dec 21 1984 " + start_time);
+        var d2 = new Date("Dec 21 1984 " + end_time);
+        var tsec = parseFloat('#<%= TotalHoursTextBox.ClientID%>') * 60.00 * 60.00;
+
+        var diff_time;
+
+        var diff = d2 - d1;
+        diff_time = diff / (60.000 * 60.000 * 1000.000);
+
+
+        if ((d2 < d1) && (tsec < 0.000)) {
+            d2.setDate(d2.getDate() + 1);
+            diff = d2 - d1;
+            diff_time = diff / (60.000 * 60.000 * 1000.000);
+        }
+
+        $(out_text_input).val(diff_time);
+    }
+
+    $(document).ready(function () {
+
+        var start_time = $("#<%= StartTimeTextBox.ClientID %>").val();
+        var end_time = $("#<%= EndTimeTextBox.ClientID %>").val();
+        if (start_time != '00:00' || end_time != '00:00') {
+            CalTotalHrs(start_time, end_time, '#<%= TotalHoursTextBox.ClientID %>');
+        }
+
+        switch_tab();
+
+        var trans_num = $("#<%= TransNumTextBox.ClientID %>").val();
+
+        if (trans_num == '') {
+            $('#<%= ProcessButton.ClientID%>').addClass('disabled');
+        } else {
+            $('#<%= ProcessButton.ClientID%>').removeClass('disabled');
+        }
+
+        $('#<%= CompleteQtyTextBox.ClientID%>').change(function () {
+            if (!$.isNumeric($(this).val()) || $(this).val() == '' || $(this).val() == null) {
+                $(this).val('0');
+                $('#<%= MoveQtyTextBox.ClientID%>').val('0');
+            } else {
+                $('#<%= MoveQtyTextBox.ClientID%>').val($(this).val());
+            }
+        });
+
+        $('#<%= MoveQtyTextBox.ClientID%>').change(function () {
+            if (!$.isNumeric($(this).val()) || $(this).val() == '' || $(this).val() == null) {
+                $(this).val('0');
+            }
+        });
+
+        $('#<%= PcsPerHrsTextBox.ClientID%>').change(function () {
+            if (!$.isNumeric($(this).val()) || $(this).val() == '' || $(this).val() == null) {
+                $(this).val('0.000');
+            }
+        });
+
+        $('#<%= StartTimeTextBox.ClientID%>').change(function () {
+
+            var start_time = $(this).val();
+            var end_time = $("#<%= EndTimeTextBox.ClientID %>").val();
+
+            var i;
+            i = start_time.indexOf(':');
+
+            if (i < 0) {
+                var mid;
+                mid = start_time.length / 2;
+                start_time = [start_time.slice(0, parseInt(mid)), ":", start_time.slice(parseInt(mid))].join('');
+                $(this).val(start_time);
+            }
+
+            var diff = new Date("Dec 21 1984") - new Date("Dec 21 1984 " + start_time);
+            if (isNaN(diff) || start_time == '') {
+                $(this).val('00:00');
+                start_time = '00:00';
+            }
+
+
+            CalTotalHrs(start_time, end_time, '#<%= TotalHoursTextBox.ClientID %>');
+        });
+
+        $('#<%= DTStartTimeTextBox.ClientID%>').change(function () {
+            var start_time = $(this).val();
+            var end_time = $("#<%= DTEndTimeTextBox.ClientID %>").val();
+
+            var i;
+            i = start_time.indexOf(':');
+
+            if (i < 0) {
+                var mid;
+                mid = start_time.length / 2;
+                start_time = [start_time.slice(0, parseInt(mid)), ":", start_time.slice(parseInt(mid))].join('');
+                $(this).val(start_time);
+            }
+
+            var diff = new Date("Dec 21 1984") - new Date("Dec 21 1984 " + start_time);
+
+            if (isNaN(diff) || start_time == '') {
+                $(this).val('00:00');
+                start_time = '00:00';
+            }
+
+            CalTotalHrs(start_time, end_time, '#<%= DTTotalHrsTextBox.ClientID %>');
+        });
+
+
+        $('#<%= EndTimeTextBox.ClientID%>').change(function () {
+            var start_time = $("#<%= StartTimeTextBox.ClientID %>").val();
+            var end_time = $(this).val();
+
+            var i;
+            i = end_time.indexOf(':');
+
+            if (i < 0) {
+                var mid;
+                mid = end_time.length / 2;
+                end_time = [end_time.slice(0, parseInt(mid)), ":", end_time.slice(parseInt(mid))].join('');
+                $(this).val(end_time);
+            }
+            var diff = new Date("Dec 21 1984") - new Date("Dec 21 1984 " + end_time);
+
+            if (isNaN(diff) || end_time == '') {
+                $(this).val('00:00');
+                end_time = '00:00';
+            }
+
+            CalTotalHrs(start_time, end_time, '#<%= TotalHoursTextBox.ClientID %>');
+        });
+
+        $('#<%= DTEndTimeTextBox.ClientID%>').change(function () {
+            var start_time = $("#<%= DTStartTimeTextBox.ClientID %>").val();
+            var end_time = $(this).val();
+
+            var i;
+            i = end_time.indexOf(':');
+
+            if (i < 0) {
+                var mid;
+                mid = end_time.length / 2;
+                end_time = [end_time.slice(0, parseInt(mid)), ":", end_time.slice(parseInt(mid))].join('');
+                $(this).val(end_time);
+            }
+            var diff = new Date("Dec 21 1984") - new Date("Dec 21 1984 " + end_time);
+
+            if (isNaN(diff) || end_time == '') {
+                $(this).val('00:00');
+                end_time = '00:00';
+            }
+
+            CalTotalHrs(start_time, end_time, '#<%= DTTotalHrsTextBox.ClientID %>');
+        });
+
+        $('#<%= TotalHoursTextBox.ClientID%>').change(function () {
+            if (!$.isNumeric($(this).val()) || $(this).val() == '' || $(this).val() == null) {
+                $(this).val('0.000');
+            }
+        }).blur(function () {
+            var start_time = $("#<%= StartTimeTextBox.ClientID %>").val();
+            var end_time = $("#<%= EndTimeTextBox.ClientID %>").val();
+
+            var tsec = parseFloat($(this).val()) * 60.00 * 60.00;
+
+            if (start_time == '') {
+                start_time = '00:00';
+            }
+
+            if (end_time == '') {
+                end_time = '00:00';
+            }
+
+            var d1 = new Date("Dec 21 1984 " + start_time);
+            var d2 = new Date("Dec 21 1984 " + end_time);
+
+            d1.setSeconds(tsec);
+            var hh = ('00' + d1.getHours()).slice(-2);
+            var mm = ('00' + d1.getMinutes()).slice(-2);
+
+            $("#<%= EndTimeTextBox.ClientID %>").val(hh + ':' + mm);
+        });
+
+        $('#<%= EmpCountTextBox.ClientID%>').change(function () {
+            if (!$.isNumeric($(this).val()) || $(this).val() == '' || $(this).val() == null) {
+                $(this).val('0');
+            }
+        })
+
+        $('#<%= ManHoursTextBox.ClientID%>').change(function () {
+            if (!$.isNumeric($(this).val()) || $(this).val() == '' || $(this).val() == null) {
+                $(this).val('0.000');
+            }
+        })
+
+        $('#<%= LeaveHoursTextBox.ClientID%>').change(function () {
+            if (!$.isNumeric($(this).val()) || $(this).val() == '' || $(this).val() == null) {
+                $(this).val('0.000');
+            }
+        })
+
+        $('#<%= SuffixTextBox.ClientID%>').change(function () {
+            if (!$.isNumeric($(this).val()) || $(this).val() == '' || $(this).val() == null) {
+                $(this).val('0000');
+            }
+        })
+
+        $('#<%= EmptyQtyTextBox.ClientID%>').change(function () {
+            if (!$.isNumeric($(this).val()) || $(this).val() == '' || $(this).val() == null) {
+                $(this).val('0.000');
+            }
+        })
+
+        $('#<%= DTTotalHrsTextBox.ClientID%>').change(function () {
+            if (!$.isNumeric($(this).val()) || $(this).val() == '' || $(this).val() == null) {
+                $(this).val('0');
+            }
+        })
+
+        $('#<%= TransDateTextBox.ClientID%>').change(function () {
+            var trn_date = $('#<%= TransDateTextBox.ClientID%>').val();
+            var trn_date_hide = $('#<%= TransDateHiddenField.ClientID%>').val();
+            if (trn_date == '') {
+                $('#<%= TransDateTextBox.ClientID%>').val(trn_date_hide);
+            }
+        })
+
+        $("#l_detail").click(function () {
+            $('#<%= ActiveTabTextBox.ClientID%>').val('a_detail');
+            switch_tab();
+        });
+        $("#l_scrap").click(function () {
+
+            $('#<%= ActiveTabTextBox.ClientID%>').val('a_scrap');
+            switch_tab();
+        });
+        $("#l_dt").click(function () {
+
+            $('#<%= ActiveTabTextBox.ClientID%>').val('a_dt');
+            switch_tab();
+        });
+        $("#l_bf").click(function () {
+            $('#<%= ActiveTabTextBox.ClientID%>').val('a_bf');
+            switch_tab();
+        });
+        $("#l_tag").click(function () {
+            $('#<%= ActiveTabTextBox.ClientID%>').val('a_tag');
+            switch_tab();
+        });
+        $("#l_fraction").click(function () {
+            $('#<%= ActiveTabTextBox.ClientID%>').val('a_fraction');
+            switch_tab();
+        });
+
+        $.datepicker.setDefaults($.datepicker.regional['en']);
+
+        $("#<%= TransDateTextBox.ClientID %>").datepicker({
+            dateFormat: "dd/mm/yy"
+        }).mask("99/99/9999");
+
+
+        $('#<%= SuffixTextBox.ClientID%>').keypress(function (e) {
+            if (e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57)) {
+                return false;
+            }
+        });
+
+        $('#<%= CompleteQtyTextBox.ClientID%>').keypress(function (e) {
+            if (e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57) && e.which != 45) {
+                return false;
+            }
+        });
+
+        $('#<%= MoveQtyTextBox.ClientID%>').keypress(function (e) {
+            if (e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57)) {
+                return false;
+            }
+        });
+
+        $('#<%= PcsPerHrsTextBox.ClientID%>').keypress(function (e) {
+            if (e.which != 45 && e.which != 46 && e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57)) {
+                return false;
+            }
+        });
+
+        $('#<%= TotalHoursTextBox.ClientID%>').keypress(function (e) {
+            if (e.which != 45 && e.which != 46 && e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57) && e.which != 45) {
+                return false;
+            }
+        });
+
+        $('#<%= EmpCountTextBox.ClientID%>').keypress(function (e) {
+            if (e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57)) {
+                return false;
+            }
+        });
+
+        $('#<%= ManHoursTextBox.ClientID%>').keypress(function (e) {
+            if (e.which != 45 && e.which != 46 && e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57)) {
+                return false;
+            }
+        });
+
+        $('#<%= LeaveHoursTextBox.ClientID%>').keypress(function (e) {
+            if (e.which != 45 && e.which != 46 && e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57)) {
+                return false;
+            }
+        });
+
+        $('#<%= EmptyQtyTextBox.ClientID%>').keypress(function (e) {
+            if (e.which != 45 && e.which != 46 && e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57) && e.which != 45) {
+                return false;
+            }
+        });
+
+        $('#<%= DTTotalHrsTextBox.ClientID%>').keypress(function (e) {
+            if (e.which != 45 && e.which != 46 && e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57) && e.which != 45) {
+                return false;
+            }
+        });
+
+        $('#<%= PrintTagButton.ClientID%>').click(function (e) {
+            var url = $('#<%= HiddenField1.ClientID%>').val();
+            window.open(url);
+            return false;
+        });
+
+        $('.numeric').keypress(function (e) {
+            if (e.which != 45 && e.which != 46 && e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57)) {
+                return false;
+            }
+        });
+
+        var substringMatcher = function (strs) {
+            return function findMatches(q, cb) {
+                var matches, substringRegex;
+                // an array that will be populated with substring matches
+                matches = [];
+                // regex used to determine if a string contains the substring `q`
+                substrRegex = new RegExp(q, 'i');
+                // iterate through the pool of strings and for any string that
+                // contains the substring `q`, add it to the `matches` array
+                $.each(strs, function (i, str) {
+                    if (substrRegex.test(str)) {
+                        matches.push(str);
+                    }
+                });
+                cb(matches);
+            };
+        };
+
+        var arr_job = [];
+        $('select#<%=JobDropDown.ClientID%>').find('option').each(function () {
+            arr_job.push($(this).val());
+        });
+
+        $('#div-job .typeahead').typeahead({
+            hint: true,
+            highlight: true,
+            minLength: 1
+        },
+        {
+            name: 'arr_job',
+            source: substringMatcher(arr_job)
+        }).bind("typeahead:selected", function (obj, datum, name) {
+            __doPostBack('#<%=JobTextBox.ClientID%>', null);
+        });
+
+
+        /*Validate Backflush Quantity*/
+        var old_qty_require;
+        $("table[id*=BFGridView] input[type=text][id*=QtyRequiredTextBox]").focus(function () {
+            old_qty_require = $(this).val();
+        });
+
+        $("table[id*=BFGridView] input[type=text][id*=QtyRequiredTextBox]").blur(function () {
+            if (!$.isNumeric($(this).val()) || $(this).val() == '' || $(this).val() == null) {
+                $(this).val('0.000');
+            }
+
+            var row = $(this).parents("tr:first");
+            var qty_onhand = parseFloat(row.children("td:eq(4)").text());
+            var qty_require = parseFloat($(this).val());
+
+            if (qty_require > qty_onhand) {
+                alert('Qty. On Hand ไม่พอ !!!');
+                $(this).val(qty_onhand);
+            }
+        });
+
+        $("table[id*=BFGridView] input[id*=SelectCheckBox]").on("change", function () {
+            var cb = $(this);
+            var checked = cb.is(":checked");
+
+            if (checked == true) {
+                var row = $(this).parents("tr:first");
+                var text_qty = $(this).closest("tr").find('input[type=text][id*=QtyRequiredTextBox]');
+
+                var qty_onhand = parseFloat(row.children("td:eq(4)").text());
+                var qty_require = text_qty.val();
+                    qty_onhand.getFloat();
+
+                if (qty_require > qty_onhand) {
+                    alert('Qty. On Hand ไม่พอ !!!');
+                    text_qty.val(qty_onhand);
+                }
+            }
+        });
+
+    });
+</script>
+
+</asp:Content>
+

@@ -1,0 +1,63 @@
+﻿
+Partial Class signin_hh
+    Inherits System.Web.UI.Page
+    Dim oWS As SLWebServices.DOWebServiceSoapClient
+
+    Protected Sub Page_Load(sender As Object, e As System.EventArgs) Handles Me.Load
+        UserNameTextBox.Focus()
+        If Not Page.IsPostBack Then
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            For Each str As String In oWS.GetConfigurationNames
+                ConfigurationDropDown.Items.Add(New ListItem(str, str))
+            Next
+
+            'Configuration
+            Dim sl_config As String = System.Configuration.ConfigurationManager.AppSettings("Configuration")
+            Dim lst_config As ListItem = ConfigurationDropDown.Items.FindByValue(Convert.ToString(sl_config))
+
+            If sl_config Is Nothing Or lst_config Is Nothing Then
+                ConfigurationDropDown.Enabled = True
+            End If
+
+            If lst_config IsNot Nothing Then
+                ConfigurationDropDown.SelectedValue = sl_config
+                ConfigurationDropDown.Enabled = False
+            End If
+
+        End If
+    End Sub
+
+    Protected Sub SignInButton_Click(sender As Object, e As System.EventArgs) Handles SignInButton.Click
+        Try
+            oWS = New SLWebServices.DOWebServiceSoapClient
+            Dim Token As String = ""
+            Dim UserName As String = UserNameTextBox.Text
+            Dim Password As String = PasswordTextBox.Text
+            Dim Config As String = Convert.ToString(ConfigurationDropDown.SelectedValue)
+
+            Token = oWS.CreateSessionToken(UserName, Password, Config)
+
+            Session("Token") = Token
+            Dim time As String = System.Configuration.ConfigurationManager.AppSettings("PageTimeOut")
+            If time Is Nothing Then
+                time = "30"
+            End If
+
+
+            Session.Timeout = time
+
+            Session("Token") = Token
+            Session("UserName") = UserName
+            Session("Config") = Config
+
+            Response.Redirect("default_hh.aspx")
+        Catch ex As Exception
+            Dim end_pos As Integer = InStr(ex.Message, "at IDOWebService.ThrowSoapException")
+            If end_pos > 0 And InStr(ex.Message, "System.Web.Services.Protocols.SoapException:") > 0 Then
+                Literal1.Text = Left(ex.Message, IIf(end_pos = 0, 0, end_pos - 1)).Replace("System.Web.Services.Protocols.SoapException:", "")
+            Else
+                Literal1.Text = ex.Message
+            End If
+        End Try
+    End Sub
+End Class
